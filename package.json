@@ -1,0 +1,13 @@
+{
+  "name": "ahorra-ramos",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.11.0" },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "set-password": "node src/server.js --set-password",
+    "test": "node --test"
+  }
+}

@@ -41,6 +41,9 @@ test('acceso, movimientos, transferencia, nómina idempotente y persistencia', a
     assert.equal((await call('/api/accounts','POST',{name:'Ahorro',kind:'savings',openingDate:'2026-11-01'})).status,201);
     const initial=(await call('/api/state?month=2026-11')).value;
     const work=initial.categories.find(c=>c.name==='Trabajo').id;
+    assert.equal((await call('/api/transactions','POST',{type:'expense',amount:'25,00',date:'2020-05-10',accountId:1,categoryId:work})).status,201);
+    assert.equal((await call('/api/state?month=2020-05')).value.summary.total,0);
+    assert.equal((await call('/api/state?month=2020-05')).value.summary.expenses,2500);
     const date='2026-11-15';
     assert.equal((await call('/api/transactions','POST',{type:'income',amount:'1000,00',date,accountId:1})).status,201);
     assert.equal((await call('/api/transactions','POST',{type:'expense',amount:'100,00',date,accountId:1,categoryId:work})).status,201);

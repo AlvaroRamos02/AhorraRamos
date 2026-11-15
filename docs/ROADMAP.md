@@ -8,7 +8,7 @@ La primera versión local ya permite acceso con contraseña, cuentas con saldo i
 
 Iteración de interfaz y acceso: contraseña configurada desde la terminal para el usuario único, sin registro web. Calendario mensual visual con fechas de cobro previstas y confirmadas. `npm test` pasó 4/4, incluida rotación de contraseña con revocación de sesiones, nómina idempotente y persistencia. La revisión visual en navegador quedó pendiente porque el navegador del entorno no pudo conectar con `127.0.0.1`.
 
-Iteración visual trader y mercados (15 de noviembre de 2026): se renovó toda la interfaz con un sistema oscuro de alta densidad y se añadió la sección Mercados con gráficos SVG adaptables para S&P 500 y Bitcoin, periodos 1M/6M/1A/Máx., resumen textual accesible y metadatos de fuente, instrumento, unidad, fecha del dato y consulta. Las consultas se hacen en servidor, con caché, tiempo de espera y fallo independiente por fuente; no alteran saldos ni patrimonio. CoinGecko aporta BTC/EUR y Yahoo Finance se usa provisionalmente para el índice S&P 500 (`^GSPC`). Queda pendiente verificar disponibilidad y condiciones de ambos proveedores en el entorno real antes de marcar las tareas de fase 3 como completadas.
+Iteración visual (16 de noviembre de 2026): se sustituyó la estética trader por un sistema oscuro, limpio y profesional. Se retiró por completo la sección Mercados y sus proveedores. El calendario destaca el día de cobro y aplica la nueva regla explícita del penúltimo día natural, desplazado al lunes si cae en fin de semana. El alta permite cualquier fecha pasada; lo anterior al saldo inicial queda como histórico sin alterar el saldo actual.
 
 Decisión técnica provisional: Node.js 24 + SQLite integrado + interfaz web sin paquetes externos. El registro de npm no estaba accesible desde el entorno de implementación. La propuesta Next.js/PostgreSQL/Prisma sigue pendiente de evaluación antes de despliegue o uso en varios dispositivos. SQLite integrado es experimental en Node 24.
 
@@ -26,7 +26,7 @@ Pendiente inmediato para completar la fase 1: permitir editar/archivar cuentas y
 
 Entrega aceptable: introducir saldos ficticios, registrar ingreso de 1.000 €, gasto de 100 € y transferencia interna de 200 € deja patrimonio líquido total en 900 €, gastos en 100 € y ahorro generado en 900 €, suponiendo saldo inicial cero y sin otras operaciones. El ahorro transferido es 200 €. Recargar conserva los datos.
 
-Calendario aceptable: noviembre de 2026 marca cobro el 30; febrero de 2028 el 28. La previsión no incrementa saldo. Confirmarla dos veces produce un único ingreso.
+Calendario aceptable: noviembre de 2026 marca cobro el 30; febrero de 2026 el 27; febrero de 2027 el 1 de marzo. La previsión no incrementa saldo. Confirmarla dos veces produce un único ingreso.
 
 ## Fase 2 — Planificación y control
 
@@ -39,15 +39,12 @@ Calendario aceptable: noviembre de 2026 marca cobro el 30; febrero de 2028 el 28
 
 Entrega aceptable: confirmar un recibo previsto no lo descuenta dos veces del disponible; un ahorro transferido no aparece como consumo; una reserva no puede superar los fondos disponibles; los totales de tablas y gráficos coinciden.
 
-## Fase 3 — Datos portables y mercados
+## Fase 3 — Datos portables
 
 - [ ] CSV con previsualización, mapeo, errores por fila, candidatos duplicados y reversión del lote.
 - [ ] Exportación CSV segura y copia completa restaurable.
-- [ ] Bitcoin con API real, caché, fecha del precio y estado de error/desactualización.
-- [ ] S&P 500 con cobertura del instrumento y condiciones del proveedor verificadas.
-- [ ] Histórico y filtros de mercado según cobertura disponible.
 
-Entrega aceptable: reimportar un mismo lote no duplica registros; dos compras legítimas iguales pueden conservarse; sin API el resto de la app funciona y no aparece una cotización inventada. Restaurar una copia reproduce los saldos.
+Entrega aceptable: reimportar un mismo lote no duplica registros; dos compras legítimas iguales pueden conservarse; restaurar una copia reproduce los saldos.
 
 ## Fase 4 — Evolución opcional
 

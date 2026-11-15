@@ -13,11 +13,10 @@ El producto debe responder rápidamente a estas preguntas:
 - ¿En qué categorías estoy gastando más?
 - ¿Qué pagos vienen y cuándo cobro?
 - ¿Cuánto estoy ahorrando y cómo voy respecto a mis objetivos?
-- ¿Cómo evolucionan el S&P 500 y Bitcoin? ¿Y mis posiciones, si las registro?
 
 ## 2. Requisitos confirmados y decisiones propuestas
 
-Requisitos del usuario: facilidad de uso, funciones completas, calendario de nóminas con desplazamiento al lunes, registro de gastos, categorías personales, gráficos, comparaciones y sección de S&P 500 y Bitcoin con datos actualizados si es viable.
+Requisitos del usuario: facilidad de uso, funciones completas, calendario de nóminas con desplazamiento al lunes, registro histórico de gastos, categorías personales, gráficos y comparaciones. La sección de mercados se retiró por decisión explícita del usuario el 16 de noviembre de 2026.
 
 Decisiones iniciales propuestas: un único usuario, español de España, EUR, zona Europe/Madrid, aplicación web adaptable con evolución a PWA, registro manual e importación CSV antes de conectar bancos. Estas decisiones pueden cambiar sin alterar los requisitos confirmados.
 
@@ -25,7 +24,7 @@ No se conoce el sueldo neto, saldos, cuentas, presupuestos ni posiciones actuale
 
 ## 3. Experiencia y navegación
 
-Secciones: Resumen, Movimientos, Calendario, Presupuestos, Ahorro, Informes, Mercados y Ajustes. Cuentas puede vivir dentro de Ajustes inicialmente.
+Secciones: Resumen, Movimientos, Calendario, Presupuestos, Ahorro, Informes y Ajustes. Cuentas puede vivir dentro de Ajustes inicialmente.
 
 - Diseño limpio, legible y con pocas acciones por pantalla. Datos prioritarios al abrir: disponible, gasto acumulado, próxima nómina y próximos pagos.
 - Acción visible «Añadir movimiento» desde cualquier sección. Registrar un gasto habitual en unos 15 segundos.
@@ -71,7 +70,7 @@ Mostrar una vista «Distribución del dinero» con gastos y ahorro, y una vista 
 
 Regla exacta para cada mes de origen:
 1. Obtener el último día natural del mes.
-2. Restar dos días naturales: ese es el antepenúltimo día.
+2. Restar un día natural: ese es el penúltimo día.
 3. Si es sábado, sumar dos días. Si es domingo, sumar un día.
 4. Conservar la fecha resultante aunque caiga en el mes siguiente.
 
@@ -79,13 +78,13 @@ Ejemplos obligatorios:
 
 | Mes de nómina | Fecha base | Día | Fecha prevista de cobro |
 | --- | --- | --- | --- |
-| Noviembre de 2026 | 28/11/2026 | Sábado | 30/11/2026 |
-| Febrero de 2026 | 26/02/2026 | Jueves | 26/02/2026 |
-| Febrero de 2027 | 26/02/2027 | Viernes | 26/02/2027 |
-| Febrero de 2028 | 27/02/2028 | Domingo | 28/02/2028 |
-| Febrero de 2021 | 26/02/2021 | Viernes | 26/02/2021 |
+| Noviembre de 2026 | 29/11/2026 | Domingo | 30/11/2026 |
+| Febrero de 2026 | 27/02/2026 | Viernes | 27/02/2026 |
+| Febrero de 2027 | 27/02/2027 | Sábado | 01/03/2027 |
+| Febrero de 2028 | 28/02/2028 | Lunes | 28/02/2028 |
+| Febrero de 2021 | 27/02/2021 | Sábado | 01/03/2021 |
 
-La regla permite cambio de mes, aunque con este cálculo concreto y desplazamiento al lunes no se rebasa el último día del mes: conservar igualmente una lógica de fechas robusta y no forzar el mes artificialmente.
+La regla permite que el cobro pase al mes siguiente. Conservar el mes de nómina original y no forzar la fecha dentro del mes artificialmente.
 
 No contemplar festivos nacionales, autonómicos ni bancarios por ahora. La regla solicitada es mover al lunes siguiente, no adelantar al viernes ni buscar otro día hábil.
 
@@ -153,20 +152,9 @@ Permitir cancelar o revertir el lote importado de forma coherente, sin borrar mo
 
 Evolución opcional: Open Banking, reglas de categorización por comercio y lectura de recibos con confirmación. IA opcional y prescindible: no enviar movimientos personales a terceros sin una decisión explícita del usuario.
 
-## 9. Mercados: S&P 500 y Bitcoin
+## 9. Mercados
 
-Sección informativa independiente de los movimientos personales. Ver mercados no implica que el usuario posea esos activos.
-
-- Cotización, variación y gráfico en 1D, 1M, 6M, 1A y máximo cuando el proveedor disponga de cobertura.
-- Identificar S&P 500 como índice en puntos; un ETF o fondo que lo replica es otro instrumento, con su propio ticker, moneda y rentabilidad. No sustituirlo silenciosamente por SPY u otro producto.
-- Bitcoin en EUR y opcionalmente USD. Variación 24 h claramente distinta de variación desde cierre bursátil.
-- Fuente, hora del dato, hora de consulta, moneda, estado de mercado y posible retraso visibles. «Actualizado» no equivale a tiempo real garantizado.
-- Consultas desde servidor, caché, tiempos de espera, reintentos limitados y control de cuota. Si falla, mostrar último dato conocido con antigüedad y aviso; si no existe, mostrar ausencia de datos.
-- Cotizaciones simuladas únicamente en un modo demo identificado.
-- Objetivo inicial: refresco BTC cada 5 minutos mientras la sección esté activa y datos bursátiles al menos al cierre, condicionado al plan/proveedor. Ajustar frecuencias a sus condiciones reales.
-- Primera candidata para BTC: CoinGecko. Para S&P 500, evaluar proveedor con cobertura explícita del índice, permisos y coste aceptable; no asumir cobertura gratuita. Si no hay proveedor configurado, dejar integración pendiente y mostrar un estado honesto.
-- Posiciones opcionales posteriores: activo exacto, unidades, compras/ventas, comisiones, coste y valoración. Separar beneficio realizado, no realizado y aportaciones. Usar tipo de cambio fechado para moneda distinta de EUR.
-- No ejecutar órdenes ni conectar un bróker en el alcance inicial. Ningún componente de IA necesita intervenir en los cálculos financieros.
+Fuera de alcance por decisión explícita del usuario. La aplicación no muestra cotizaciones ni consulta proveedores de mercado.
 
 ## 10. Base técnica propuesta
 
@@ -224,15 +212,12 @@ Referencias para iniciar el desarrollo; volver a verificar versiones, cobertura 
 - Next.js App Router: https://nextjs.org/docs/app
 - TypeScript en Next.js: https://nextjs.org/docs/app/api-reference/config/typescript
 - PostgreSQL y Prisma: https://www.prisma.io/docs
-- Precios CoinGecko: https://support.coingecko.com/articles/1183079640-i-only-want-crypto-prices-e-g-btc-price-how-can-i-do-this
-- Documentación de mercado candidata a evaluar, sin cobertura del índice confirmada: https://twelvedata.com/docs
 
 ## 14. Decisiones pendientes sin bloquear el arranque
 
 - Nombre definitivo del producto y estilo visual.
 - Cuentas, saldos iniciales, sueldo neto, recibos y objetivos: configuración del usuario.
 - Dónde se ejecutará habitualmente y política de copias.
-- Proveedor concreto de S&P 500, presupuesto para API y retraso aceptable.
 - Banco y proveedor si se decide sincronizar movimientos en una fase posterior.
 
 Mantener cambios de producto aquí, instrucciones de trabajo en `AGENTS.md` y progreso verificable en `docs/ROADMAP.md`.

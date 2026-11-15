@@ -7,7 +7,7 @@
 - No asumir que existe una aplicación: inicialmente solo hay documentación.
 
 ## Reglas que no deben romperse
-- Nómina prevista: antepenúltimo día natural del mes; sábado o domingo se desplaza al lunes siguiente, incluso si cambia el mes. No ajustar festivos sin una nueva regla explícita.
+- Nómina prevista: penúltimo día natural del mes; sábado o domingo se desplaza al lunes siguiente, incluso si cambia el mes. No ajustar festivos sin una nueva regla explícita.
 - Separar previsiones de movimientos confirmados. Un evento de calendario no incrementa el saldo real.
 - Gastos iniciales: Caprichos, Pádel, Trabajo, Novia e IA. Ahorros aparece en la distribución del dinero como destino de transferencias, no como gasto de consumo.
 - Una transferencia interna no es ingreso ni gasto; nunca duplicar dinero al moverlo entre cuentas.

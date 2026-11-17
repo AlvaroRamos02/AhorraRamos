@@ -3,10 +3,8 @@
 ## Fuente de verdad
 
 - Lee primero `docs/PROJECT_CONTEXT.md` para conocer el estado real.
-- Usa `docs/CONTEXT.md` para reglas funcionales e invariantes.
-- Usa `docs/ROADMAP.md` para distinguir lo implementado de lo pendiente.
-- Registra decisiones duraderas en `docs/DECISIONS.md`.
-- Si la documentación contradice al código o las pruebas, comprueba el comportamiento y corrige el contexto; no adivines.
+- Consulta otros documentos solo si son relevantes para la tarea.
+- Si la documentación contradice al código, comprueba el comportamiento; no adivines.
 
 ## Invariantes
 
@@ -30,7 +28,7 @@
 ## Entrega
 
 - Haz cambios pequeños y relacionados con un requisito confirmado.
-- Actualiza contexto, roadmap y decisiones solo cuando cambie su verdad.
-- Ejecuta `npm test` después de cambios funcionales o de reglas.
+- No actualices archivos Markdown salvo que el cambio lo necesite o el usuario lo pida.
+- No ejecutes `npm test` por defecto. Haz solo comprobaciones rápidas y dirigidas cuando aporten valor; ejecuta la suite completa únicamente si el usuario lo pide.
 - Antes de publicar, revisa diff, secretos, estado de Git y coincidencia entre `HEAD` y el remoto.
 - Informa qué cambió, qué se verificó y qué continúa pendiente.

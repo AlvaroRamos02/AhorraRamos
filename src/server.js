@@ -62,19 +62,18 @@ async function configurePassword() {
   console.log(`${existing?'Contraseña cambiada':'Contraseña configurada'}; las sesiones anteriores se han cerrado. Inicia la aplicación con \`npm start\`.`);
 }
 function account(id) { const a=db.prepare('SELECT * FROM account WHERE id=?').get(Number(id)); if (!a) throw new Error('Cuenta no encontrada'); return a; }
+function soleAccount() { const a=db.prepare('SELECT * FROM account ORDER BY id LIMIT 1').get(); if (!a) throw new Error('Configura tu cuenta antes de registrar movimientos'); return a; }
 function category(id) { const c=db.prepare('SELECT * FROM category WHERE id=? AND archived=0').get(Number(id)); if (!c) throw new Error('Categoría no encontrada'); return c; }
 function audit(id,action,snapshot) { db.prepare('INSERT INTO audit(entity,entity_id,action,snapshot) VALUES(?,?,?,?)').run('transaction',id,action,JSON.stringify(snapshot)); }
 function parseBalance(value) { const raw=String(value??'').trim(); return /^0(?:[.,]0{1,2})?$/.test(raw) ? 0 : parseCents(raw); }
 function transactionInput(data) {
-  const type=String(data.type || ''); if (!['income','expense','transfer'].includes(type)) throw new Error('Tipo no válido');
+  const type=String(data.type || ''); if (!['income','expense'].includes(type)) throw new Error('Tipo no válido');
   const amount=parseCents(String(data.amount || ''));
   const date=validDate(data.date);
-  const a=account(data.accountId);
-  const destination=type==='transfer' ? account(data.destinationId) : null;
-  if (destination?.id===a.id) throw new Error('Elige otra cuenta de destino');
+  const a=soleAccount();
   const c=type==='expense' ? category(data.categoryId) : null;
   const note=String(data.note || '').trim(); if (note.length>160) throw new Error('Concepto demasiado largo');
-  return {type,amount,date,accountId:a.id,destinationId:destination?.id || null,categoryId:c?.id || null,note};
+  return {type,amount,date,accountId:a.id,destinationId:null,categoryId:c?.id || null,note};
 }
 function insertTransaction(t,salaryMonth=null) {
   const result=db.prepare(`INSERT INTO transaction_entry(type,amount_cents,date,account_id,destination_id,category_id,note,salary_month) VALUES(?,?,?,?,?,?,?,?)`).run(t.type,t.amount,t.date,t.accountId,t.destinationId,t.categoryId,t.note,salaryMonth);
@@ -107,6 +106,7 @@ const server=http.createServer(async(req,res)=>{
       const data=state(month); reply(res,200,{...data,month,summary:summarize(data.accounts,data.transactions,month),today:now()}); return;
     }
     if (url.pathname==='/api/accounts' && req.method==='POST') {
+      if (db.prepare('SELECT 1 FROM account LIMIT 1').get()) throw new Error('Solo puedes tener una cuenta');
       const data=await body(req), name=String(data.name||'').trim(), kind=String(data.kind||'');
       if (!name || name.length>60 || !['checking','savings','cash','investment'].includes(kind)) throw new Error('Cuenta no válida');
       const opening=data.opening ? parseCents(String(data.opening)) : 0;
@@ -149,7 +149,7 @@ const server=http.createServer(async(req,res)=>{
       const existing=db.prepare('SELECT id FROM transaction_entry WHERE salary_month=?').get(key);
       if (existing) { reply(res,200,{id:existing.id,alreadyConfirmed:true}); return; }
       const actualDate=validDate(data.date||salaryDate(Number(key.slice(0,4)),Number(key.slice(5))));
-      const destinationAccount=account(data.accountId);
+      const destinationAccount=soleAccount();
       const t={type:'income',amount:parseCents(String(data.amount||'')),date:actualDate,accountId:destinationAccount.id,destinationId:null,categoryId:null,note:'Nómina '+key};
       let id; atomic(()=>{id=insertTransaction(t,key);}); reply(res,201,{id,alreadyConfirmed:false}); return;
     }

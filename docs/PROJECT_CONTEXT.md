@@ -1,10 +1,10 @@
 # Contexto de AhorraRamos
 
-Aplicación web personal, privada y local para gestionar finanzas en español, EUR y `Europe/Madrid`.
+Aplicación web personal, privada y local para gestionar una única cuenta financiera en español, EUR y `Europe/Madrid`.
 
 ## Estado actual
 
-Funciona con Node.js 24, módulos ES, `node:sqlite` y HTML/CSS/JavaScript sin dependencias externas. Escucha en `127.0.0.1` y ofrece acceso por contraseña, cuentas, categorías, movimientos, transferencias, resumen mensual, gráfico por categorías y calendario de nómina.
+Funciona con Node.js 24, módulos ES, `node:sqlite` y HTML/CSS/JavaScript sin dependencias externas. Escucha en `127.0.0.1` y ofrece acceso por contraseña, una cuenta, categorías, movimientos, resumen mensual, gráfico por categorías y calendario de nómina.
 
 Sigue siendo una versión local temprana. No tiene todavía copias/restauración verificadas desde la interfaz, CSV, recurrencias, presupuestos, objetivos ni informes avanzados. No debe exponerse públicamente ni ser la única copia de datos reales.
 
@@ -12,7 +12,6 @@ Sigue siendo una versión local temprana. No tiene todavía copias/restauración
 
 - Los importes EUR se almacenan en céntimos enteros.
 - Solo los movimientos confirmados afectan al saldo.
-- Las transferencias internas no generan ingreso, gasto ni cambio de patrimonio total.
 - La previsión de nómina usa el penúltimo día natural y pasa al lunes si cae en fin de semana, aunque cambie de mes.
 - Confirmar una nómina varias veces crea un único ingreso.
 - Las previsiones no son dinero disponible.

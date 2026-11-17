@@ -1,0 +1,17 @@
+---
+description: Contexto y principios globales de AhorraRamos
+alwaysApply: true
+---
+
+# Contexto global
+
+- Lee `docs/PROJECT_CONTEXT.md` antes de proponer producto, arquitectura o código.
+- Trata únicamente los “Hechos confirmados” como requisitos conocidos.
+- Etiqueta como hipótesis cualquier inferencia no validada.
+- No deduzcas el dominio del producto a partir del nombre AhorraRamos.
+- No añadas funcionalidad mientras la fase actual siga siendo de definición.
+- Prioriza aclarar problema, usuario, resultado esperado, alcance y restricciones.
+- Registra decisiones relevantes en `docs/DECISIONS.md`.
+- Favorece cambios pequeños, reversibles y vinculados a un objetivo medible.
+- Si falta contexto crítico, formula preguntas concretas y documenta las respuestas.
+- Mantén README, contexto y decisiones coherentes entre sí.

@@ -1,37 +1,40 @@
 # Contribuir a AhorraRamos
 
-Mientras el proyecto permanezca en fase de definición, las contribuciones deben mejorar la claridad del contexto y no añadir funcionalidad.
+## Antes de cambiar algo
 
-## Flujo recomendado
+1. Lee [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md).
+2. Localiza la regla aplicable en [`docs/CONTEXT.md`](docs/CONTEXT.md).
+3. Comprueba en [`docs/ROADMAP.md`](docs/ROADMAP.md) si el comportamiento existe, es parcial o está pendiente.
+4. Revisa [`docs/DECISIONS.md`](docs/DECISIONS.md) para no reabrir decisiones sin contexto nuevo.
 
-1. Revisar `docs/PROJECT_CONTEXT.md` antes de proponer cambios.
-2. Distinguir hechos confirmados de hipótesis.
-3. Explicar el problema que resuelve cada cambio.
-4. Mantener los cambios pequeños y enfocados.
-5. Registrar decisiones relevantes en `docs/DECISIONS.md`.
-6. Comprobar enlaces, coherencia y ortografía antes de integrar.
+## Mantener el contexto
 
-## Criterios para la documentación
+- Separa con claridad **actual**, **decidido**, **propuesto** y **pendiente**.
+- No dupliques especificaciones extensas: enlaza su fuente de verdad.
+- No marques una capacidad como implementada sin comprobar código y pruebas.
+- Cuando una decisión cambie, conserva el motivo y señala qué decisión reemplaza.
+- No documentes sueldo, saldos, movimientos, contraseñas ni otros datos personales reales.
 
-- Usar lenguaje claro, directo y verificable.
-- Evitar afirmaciones ambiguas como “rápido”, “intuitivo” o “seguro” sin criterios medibles.
-- No presentar inferencias derivadas del nombre del proyecto como hechos.
-- Eliminar información obsoleta en lugar de acumular versiones contradictorias.
-- Enlazar la fuente de una restricción externa cuando exista.
+## Cambios de código
 
-## Commits
+- Vincula cada cambio a un requisito confirmado y a criterios observables.
+- Conserva los invariantes financieros de `AGENTS.md`.
+- Incluye pruebas para reglas financieras, fechas, idempotencia y persistencia.
+- No mezcles una migración de arquitectura con una función de producto.
 
-Usar mensajes breves en modo imperativo y describir una sola intención por commit. Ejemplos:
+## Validación
 
-- `docs: define el contexto inicial del proyecto`
-- `docs: registra la decisión sobre el alcance del MVP`
-- `docs: aclara las restricciones de privacidad`
+La comprobación mínima actual es:
 
-## Antes de añadir código
+```powershell
+npm test
+```
 
-Una propuesta de implementación debe indicar:
+Para cambios visuales, revisa además el flujo afectado en móvil y escritorio cuando el entorno lo permita. No afirmes una validación que no se haya ejecutado.
 
-- el requisito validado que satisface;
-- los criterios de aceptación;
-- los riesgos o datos sensibles implicados;
-- la decisión técnica correspondiente, si condiciona el futuro del proyecto.
+## Git
+
+- Usa commits pequeños con Conventional Commits, por ejemplo `docs: aclara el estado actual`.
+- Revisa explícitamente los archivos preparados antes de confirmar.
+- Nunca subas `.env`, `data/`, credenciales, tokens ni copias de la base de datos.
+- Evita reescribir historial compartido o forzar un push.

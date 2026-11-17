@@ -1,32 +1,80 @@
 # AhorraRamos
 
-Repositorio inicial de **AhorraRamos**.
+Aplicación web privada y local para registrar cuentas, ingresos, gastos, transferencias y nóminas. Está pensada para un único usuario, en español de España, con importes EUR almacenados en céntimos enteros y zona horaria `Europe/Madrid`.
 
-Este repositorio está, por ahora, en fase de definición. Todavía no contiene una implementación ni se ha decidido su arquitectura técnica. La documentación existente busca que las próximas decisiones partan de un contexto compartido, explícito y fácil de mantener.
+> Estado: primera versión local operativa. No está preparada para exponerse a Internet ni para guardar datos financieros reales como única copia.
 
-## Estado actual
+## Empezar
 
-- Fase: descubrimiento y definición.
-- Código funcional: ninguno.
-- Stack tecnológico: pendiente de decidir.
-- Alcance del producto: pendiente de validar.
-- Fuente de verdad del contexto: [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md).
+Requiere Node.js 24.11 o superior. No hay paquetes externos que instalar.
 
-## Antes de implementar
+```powershell
+npm run set-password
+npm start
+```
 
-1. Resolver las preguntas abiertas del contexto de proyecto.
-2. Definir el problema, los usuarios y los resultados esperados.
-3. Acordar un primer alcance pequeño y verificable.
-4. Registrar las decisiones relevantes en [`docs/DECISIONS.md`](docs/DECISIONS.md).
-5. Elegir la arquitectura y las herramientas solo después de entender las necesidades.
+Abre `http://127.0.0.1:3000` e inicia sesión. El primer comando solicita la contraseña dos veces y guarda únicamente su hash. No existe registro de usuarios en la web.
 
-## Documentación
+La base de datos se guarda en `data/ahorra-ramos.sqlite`, fuera de Git. Para cambiar la contraseña, detén el servidor y ejecuta de nuevo `npm run set-password`.
 
-- [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md): visión, alcance, restricciones y preguntas abiertas.
-- [`docs/DECISIONS.md`](docs/DECISIONS.md): registro breve de decisiones y su razonamiento.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): forma de actualizar el contexto y preparar futuros cambios.
-- [`.cursor/rules/project-context.mdc`](.cursor/rules/project-context.mdc): instrucciones persistentes para asistentes de IA.
+Otros comandos:
 
-## Principio de trabajo
+```powershell
+npm run dev   # servidor con recarga al cambiar archivos
+npm test      # pruebas de dominio e integración HTTP
+```
 
-No convertir suposiciones en requisitos. Cuando falte información, documentarla como una pregunta abierta y validar antes de construir.
+`PORT` y `DATA_DIR` son opcionales; consulta [`.env.example`](.env.example). Node no carga `.env` automáticamente.
+
+## Uso inicial
+
+1. En **Ajustes**, crea una cuenta con saldo inicial y fecha de corte.
+2. Usa **Añadir movimiento** para registrar ingresos, gastos o transferencias.
+3. Consulta en **Resumen** los saldos y las métricas del mes seleccionado.
+4. Consulta y confirma la nómina desde **Calendario**. Repetir la confirmación no crea otro ingreso.
+
+Los movimientos anteriores a la fecha del saldo inicial se conservan como historial, pero no alteran el saldo actual.
+
+## Mapa de contexto
+
+Lee los documentos en este orden para evitar mezclar hechos actuales con planes futuros:
+
+1. [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md): resumen breve del producto y del estado real.
+2. [`docs/CONTEXT.md`](docs/CONTEXT.md): especificación funcional completa e invariantes de negocio.
+3. [`docs/ROADMAP.md`](docs/ROADMAP.md): alcance verificado, pendientes y orden de evolución.
+4. [`docs/DECISIONS.md`](docs/DECISIONS.md): decisiones vigentes y por qué se tomaron.
+5. [`AGENTS.md`](AGENTS.md): reglas para trabajar en el repositorio.
+
+Regla de lectura: el código y las pruebas describen lo que existe; el roadmap describe lo comprobado; la especificación también contiene comportamiento futuro.
+
+## Estado funcional actual
+
+La primera versión incluye:
+
+- acceso local con contraseña y sesiones para un usuario;
+- cuentas con saldo inicial y fecha de corte;
+- categorías iniciales y personalizadas;
+- ingresos, gastos y transferencias persistentes;
+- edición y eliminación de movimientos con auditoría mínima;
+- resumen mensual, saldos y distribución por categorías;
+- calendario mensual y confirmación idempotente de nómina.
+
+Todavía faltan, entre otros, reembolsos vinculados, recurrencias, presupuestos, objetivos, CSV, informes avanzados y un flujo verificado de copia y restauración.
+
+## Arquitectura actual
+
+- `src/domain.js`: reglas financieras y de calendario puras.
+- `src/db.js`: esquema y acceso a SQLite mediante `node:sqlite`.
+- `src/server.js`: sesiones, validación y API HTTP local.
+- `src/public/`: interfaz web adaptable sin framework.
+- `test/`: pruebas unitarias y recorrido HTTP con persistencia.
+
+La implementación actual usa Node.js 24 y SQLite integrado sin dependencias externas. La posible migración a otro stack es una decisión futura, no el estado actual. SQLite integrado figura como experimental en Node 24.
+
+## Límites de seguridad
+
+- El servidor escucha solo en `127.0.0.1`.
+- No publiques el servicio directamente en Internet.
+- No subas `.env`, `data/`, contraseñas, tokens ni datos financieros reales.
+- Mantén una copia privada del archivo SQLite con la aplicación detenida.
+- No uses datos reales como única copia hasta verificar restauración y exportación.

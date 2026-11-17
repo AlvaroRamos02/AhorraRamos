@@ -1,113 +1,85 @@
-# Contexto del proyecto
+# Contexto operativo de AhorraRamos
 
-## Resumen
+Última revisión: 17 de noviembre de 2026.
 
-**AhorraRamos** es el nombre provisional del proyecto. El repositorio aún no contiene suficiente información para afirmar qué producto se construirá, para quién o mediante qué tecnología.
+## En una frase
 
-Este documento separa deliberadamente los hechos, las hipótesis y las decisiones. Debe mantenerse como la fuente de verdad principal durante la definición del proyecto.
+AhorraRamos es una aplicación web personal, privada y local para entender saldos, gastos, ahorro y próximas nóminas sin depender de servicios externos.
 
-## Hechos confirmados
+## Qué problema resuelve
 
-- El nombre actual del proyecto es **AhorraRamos**.
-- El proyecto se encuentra en una fase inicial de definición.
-- A fecha de creación de este documento no existe código funcional.
-- No se ha seleccionado un stack tecnológico.
-- Se desea mejorar primero el contexto antes de introducir funcionalidad.
+El producto busca responder con datos verificables:
 
-## Hipótesis por validar
+- cuánto dinero hay disponible;
+- cuánto se ha ingresado y gastado en un periodo;
+- en qué categorías se concentra el gasto;
+- cuánto ahorro se ha generado y cuánto se ha transferido a ahorro;
+- cuándo está prevista la próxima nómina.
 
-El nombre puede sugerir una iniciativa relacionada con ahorro, finanzas o hábitos, pero esto **no está confirmado**. No debe orientar decisiones de producto ni técnicas hasta que se valide explícitamente.
+## Usuario y entorno
 
-## Objetivo de la fase actual
+- Un único usuario.
+- Español de España.
+- Moneda EUR.
+- Zona horaria `Europe/Madrid`.
+- Uso local en ordenador, con interfaz adaptable a móvil.
+- Sin registro público, sincronización bancaria ni servicios de mercado.
 
-Convertir una idea todavía ambigua en una definición de producto suficientemente clara como para diseñar un primer incremento pequeño, medible y reversible.
+## Estado real
 
-La fase estará completa cuando exista acuerdo sobre:
+Existe una primera versión ejecutable con acceso por contraseña, persistencia SQLite, cuentas, categorías, movimientos, transferencias, resumen mensual, gráfico por categorías y calendario de nómina.
 
-- el problema concreto que se quiere resolver;
-- las personas que lo experimentan;
-- el resultado que indicará que la solución aporta valor;
-- el alcance mínimo de una primera versión;
-- las restricciones de negocio, legales, técnicas y operativas;
-- los criterios con los que se evaluará el primer incremento.
+El producto sigue siendo una versión local temprana. No dispone todavía de copias/restauración verificadas desde la interfaz, CSV, recurrencias, presupuestos, objetivos ni informes avanzados. No debe exponerse públicamente ni utilizarse con datos reales como única copia.
 
-## Alcance actual
+Consulta [`ROADMAP.md`](ROADMAP.md) para el detalle de capacidades y pendientes.
 
-### Incluido
+## Arquitectura vigente
 
-- Descubrimiento del problema y de los usuarios.
-- Definición de objetivos y métricas.
-- Identificación de restricciones y riesgos.
-- Priorización de casos de uso.
-- Documentación de decisiones.
-- Evaluación posterior de alternativas técnicas.
+- Runtime: Node.js 24.11 o superior.
+- Servidor: HTTP local en `127.0.0.1`.
+- Persistencia: `node:sqlite`, archivo local fuera de Git.
+- Cliente: HTML, CSS y JavaScript sin framework.
+- Dependencias externas: ninguna.
+- Pruebas: runner nativo de Node, reglas de dominio e integración HTTP.
 
-### Excluido por ahora
+La arquitectura Next.js/PostgreSQL descrita en la especificación es una alternativa futura. No representa el código actual ni debe adoptarse sin reevaluar despliegue, múltiples dispositivos, mantenimiento y migración de datos.
 
-- Implementación de funcionalidades.
-- Selección prematura de framework, lenguaje, base de datos o proveedor.
-- Diseño detallado de interfaces sin casos de uso validados.
-- Integraciones o automatizaciones externas.
-- Compromisos de fechas sin un alcance definido.
+## Reglas que definen el producto
 
-## Principios de decisión
+1. EUR se almacena en céntimos enteros.
+2. Solo los movimientos confirmados afectan al saldo.
+3. Las transferencias internas no generan ingreso ni gasto.
+4. El ahorro generado y la transferencia a ahorro son métricas distintas.
+5. La fecha prevista de nómina es el penúltimo día natural; si cae en sábado o domingo, pasa al lunes siguiente.
+6. Confirmar una nómina varias veces produce un único ingreso.
+7. Un movimiento anterior a la fecha de corte se conserva como historial sin modificar el saldo de apertura.
+8. Las previsiones nunca se presentan como dinero ya disponible.
 
-1. **Hechos antes que suposiciones.** Toda afirmación no validada debe etiquetarse como hipótesis.
-2. **Problema antes que solución.** La tecnología debe responder a necesidades conocidas.
-3. **Alcance pequeño.** La primera versión debe poder validarse con el mínimo coste razonable.
-4. **Resultados medibles.** Cada iniciativa debe indicar qué cambio observable busca producir.
-5. **Decisiones reversibles.** Cuando haya incertidumbre, favorecer opciones fáciles de cambiar.
-6. **Privacidad desde el diseño.** Si se manejan datos personales o financieros, evaluar sus implicaciones antes de implementar.
-7. **Documentación viva.** Actualizar este contexto cuando se confirme o descarte una hipótesis.
+La definición exhaustiva está en [`CONTEXT.md`](CONTEXT.md).
 
-## Preguntas abiertas prioritarias
+## Prioridad actual
 
-### Producto
+Cerrar la fiabilidad de la primera fase antes de ampliar el producto:
 
-- ¿Qué problema específico quiere resolver AhorraRamos?
-- ¿Quién es el usuario principal y en qué situación aparece el problema?
-- ¿Qué alternativas utiliza hoy ese usuario?
-- ¿Cuál es la propuesta de valor en una sola frase?
-- ¿Qué caso de uso debe resolver primero?
+1. copia y restauración verificadas;
+2. edición y archivado seguros de cuentas y categorías con historial;
+3. reembolsos vinculados sin doble contabilización;
+4. evolución mensual y revisión visual en móvil/escritorio.
 
-### Éxito
+## Decisiones todavía abiertas
 
-- ¿Qué comportamiento o resultado demostrará que el producto aporta valor?
-- ¿Cuál será la métrica principal de la primera versión?
-- ¿Qué umbral justificaría continuar, cambiar de enfoque o detener el proyecto?
+- Dónde se ejecutará habitualmente la aplicación.
+- Qué política de copia y recuperación necesita el usuario.
+- Cuándo deja de ser suficiente SQLite local.
+- Si se necesita acceso desde varios dispositivos.
+- Si una importación CSV precederá a cualquier integración bancaria.
 
-### Alcance
+## Jerarquía documental
 
-- ¿Qué es imprescindible para la primera validación?
-- ¿Qué funciones quedan expresamente fuera?
-- ¿Debe ser web, móvil, escritorio, servicio interno u otro formato?
+- Este archivo: resumen actual para incorporarse rápidamente al proyecto.
+- `CONTEXT.md`: especificación completa, incluidos comportamientos futuros.
+- `ROADMAP.md`: evidencia de avance y próximos pasos.
+- `DECISIONS.md`: decisiones vigentes y consecuencias.
+- `AGENTS.md`: instrucciones operativas para realizar cambios.
 
-### Restricciones
-
-- ¿Existe una fecha objetivo o un presupuesto?
-- ¿Hay requisitos de privacidad, seguridad, accesibilidad o cumplimiento normativo?
-- ¿Se tratarán datos personales, bancarios o especialmente sensibles?
-- ¿Existen servicios externos o sistemas con los que sea necesario integrarse?
-
-### Operación
-
-- ¿Quién desarrollará, mantendrá y dará soporte al producto?
-- ¿Qué nivel de disponibilidad y observabilidad será necesario?
-- ¿Qué entornos y flujo de entrega se necesitarán?
-
-## Plantilla para concretar el producto
-
-Completar esta sección cuando se disponga de respuestas validadas:
-
-> Para **[tipo de usuario]** que necesita **[problema o necesidad]**, AhorraRamos es **[tipo de solución]** que permite **[beneficio principal]**. A diferencia de **[alternativa actual]**, ofrece **[diferenciador verificable]**.
-
-## Próximo hito recomendado
-
-Realizar una sesión breve de definición y cerrar, como mínimo, las cinco preguntas de producto. Con esas respuestas podrá redactarse un alcance inicial sin inventar requisitos ni arquitectura.
-
-## Mantenimiento
-
-- Editar este documento cuando cambie el contexto confirmado.
-- Mover las decisiones cerradas a `docs/DECISIONS.md`.
-- Conservar aquí únicamente el estado vigente, no el historial completo.
-- Añadir la fecha de última revisión cuando se produzca el primer cambio de contenido.
+No copies bloques extensos entre documentos. Actualiza la fuente correspondiente y enlázala.

@@ -1,85 +1,32 @@
-# Contexto operativo de AhorraRamos
+# Contexto de AhorraRamos
 
-Última revisión: 17 de noviembre de 2026.
+Aplicación web personal, privada y local para gestionar finanzas en español, EUR y `Europe/Madrid`.
 
-## En una frase
+## Estado actual
 
-AhorraRamos es una aplicación web personal, privada y local para entender saldos, gastos, ahorro y próximas nóminas sin depender de servicios externos.
+Funciona con Node.js 24, módulos ES, `node:sqlite` y HTML/CSS/JavaScript sin dependencias externas. Escucha en `127.0.0.1` y ofrece acceso por contraseña, cuentas, categorías, movimientos, transferencias, resumen mensual, gráfico por categorías y calendario de nómina.
 
-## Qué problema resuelve
+Sigue siendo una versión local temprana. No tiene todavía copias/restauración verificadas desde la interfaz, CSV, recurrencias, presupuestos, objetivos ni informes avanzados. No debe exponerse públicamente ni ser la única copia de datos reales.
 
-El producto busca responder con datos verificables:
+## Reglas esenciales
 
-- cuánto dinero hay disponible;
-- cuánto se ha ingresado y gastado en un periodo;
-- en qué categorías se concentra el gasto;
-- cuánto ahorro se ha generado y cuánto se ha transferido a ahorro;
-- cuándo está prevista la próxima nómina.
+- Los importes EUR se almacenan en céntimos enteros.
+- Solo los movimientos confirmados afectan al saldo.
+- Las transferencias internas no generan ingreso, gasto ni cambio de patrimonio total.
+- La previsión de nómina usa el penúltimo día natural y pasa al lunes si cae en fin de semana, aunque cambie de mes.
+- Confirmar una nómina varias veces crea un único ingreso.
+- Las previsiones no son dinero disponible.
+- Los movimientos anteriores al saldo inicial se conservan como historial sin alterar ese saldo.
 
-## Usuario y entorno
+## Seguridad
 
-- Un único usuario.
-- Español de España.
-- Moneda EUR.
-- Zona horaria `Europe/Madrid`.
-- Uso local en ordenador, con interfaz adaptable a móvil.
-- Sin registro público, sincronización bancaria ni servicios de mercado.
+La sesión es obligatoria. La validación, autenticación y autorización se realizan en el servidor. No se guardan secretos ni datos financieros reales en el repositorio o logs. La base de datos queda fuera de Git.
 
-## Estado real
+## Prioridades
 
-Existe una primera versión ejecutable con acceso por contraseña, persistencia SQLite, cuentas, categorías, movimientos, transferencias, resumen mensual, gráfico por categorías y calendario de nómina.
+1. Copia y restauración verificadas.
+2. Edición y archivado seguros de cuentas y categorías con historial.
+3. Reembolsos vinculados sin doble contabilización.
+4. Evolución mensual y revisión visual en móvil y escritorio.
 
-El producto sigue siendo una versión local temprana. No dispone todavía de copias/restauración verificadas desde la interfaz, CSV, recurrencias, presupuestos, objetivos ni informes avanzados. No debe exponerse públicamente ni utilizarse con datos reales como única copia.
-
-Consulta [`ROADMAP.md`](ROADMAP.md) para el detalle de capacidades y pendientes.
-
-## Arquitectura vigente
-
-- Runtime: Node.js 24.11 o superior.
-- Servidor: HTTP local en `127.0.0.1`.
-- Persistencia: `node:sqlite`, archivo local fuera de Git.
-- Cliente: HTML, CSS y JavaScript sin framework.
-- Dependencias externas: ninguna.
-- Pruebas: runner nativo de Node, reglas de dominio e integración HTTP.
-
-La arquitectura Next.js/PostgreSQL descrita en la especificación es una alternativa futura. No representa el código actual ni debe adoptarse sin reevaluar despliegue, múltiples dispositivos, mantenimiento y migración de datos.
-
-## Reglas que definen el producto
-
-1. EUR se almacena en céntimos enteros.
-2. Solo los movimientos confirmados afectan al saldo.
-3. Las transferencias internas no generan ingreso ni gasto.
-4. El ahorro generado y la transferencia a ahorro son métricas distintas.
-5. La fecha prevista de nómina es el penúltimo día natural; si cae en sábado o domingo, pasa al lunes siguiente.
-6. Confirmar una nómina varias veces produce un único ingreso.
-7. Un movimiento anterior a la fecha de corte se conserva como historial sin modificar el saldo de apertura.
-8. Las previsiones nunca se presentan como dinero ya disponible.
-
-La definición exhaustiva está en [`CONTEXT.md`](CONTEXT.md).
-
-## Prioridad actual
-
-Cerrar la fiabilidad de la primera fase antes de ampliar el producto:
-
-1. copia y restauración verificadas;
-2. edición y archivado seguros de cuentas y categorías con historial;
-3. reembolsos vinculados sin doble contabilización;
-4. evolución mensual y revisión visual en móvil/escritorio.
-
-## Decisiones todavía abiertas
-
-- Dónde se ejecutará habitualmente la aplicación.
-- Qué política de copia y recuperación necesita el usuario.
-- Cuándo deja de ser suficiente SQLite local.
-- Si se necesita acceso desde varios dispositivos.
-- Si una importación CSV precederá a cualquier integración bancaria.
-
-## Jerarquía documental
-
-- Este archivo: resumen actual para incorporarse rápidamente al proyecto.
-- `CONTEXT.md`: especificación completa, incluidos comportamientos futuros.
-- `ROADMAP.md`: evidencia de avance y próximos pasos.
-- `DECISIONS.md`: decisiones vigentes y consecuencias.
-- `AGENTS.md`: instrucciones operativas para realizar cambios.
-
-No copies bloques extensos entre documentos. Actualiza la fuente correspondiente y enlázala.
+Consulta `CONTEXT.md` solo para reglas funcionales adicionales, `ROADMAP.md` para pendientes y `DECISIONS.md` antes de cambiar una decisión técnica vigente.

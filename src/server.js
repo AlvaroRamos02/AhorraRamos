@@ -64,6 +64,7 @@ async function configurePassword() {
 function account(id) { const a=db.prepare('SELECT * FROM account WHERE id=?').get(Number(id)); if (!a) throw new Error('Cuenta no encontrada'); return a; }
 function category(id) { const c=db.prepare('SELECT * FROM category WHERE id=? AND archived=0').get(Number(id)); if (!c) throw new Error('Categoría no encontrada'); return c; }
 function audit(id,action,snapshot) { db.prepare('INSERT INTO audit(entity,entity_id,action,snapshot) VALUES(?,?,?,?)').run('transaction',id,action,JSON.stringify(snapshot)); }
+function parseBalance(value) { const raw=String(value??'').trim(); return /^0(?:[.,]0{1,2})?$/.test(raw) ? 0 : parseCents(raw); }
 function transactionInput(data) {
   const type=String(data.type || ''); if (!['income','expense','transfer'].includes(type)) throw new Error('Tipo no válido');
   const amount=parseCents(String(data.amount || ''));
@@ -111,6 +112,17 @@ const server=http.createServer(async(req,res)=>{
       const opening=data.opening ? parseCents(String(data.opening)) : 0;
       const openingDate=validDate(data.openingDate);
       db.prepare('INSERT INTO account(name,kind,opening_cents,opening_date) VALUES(?,?,?,?)').run(name,kind,opening,openingDate); reply(res,201,{ok:true}); return;
+    }
+    const balanceMatch=url.pathname.match(/^\/api\/accounts\/(\d+)\/balance$/);
+    if (balanceMatch && req.method==='POST') {
+      const target=account(balanceMatch[1]), targetBalance=parseBalance((await body(req)).balance);
+      const snapshot=state(monthNow()), current=summarize(snapshot.accounts,snapshot.transactions,monthNow()).balances[target.id];
+      const delta=targetBalance-current;
+      if (delta) atomic(()=>{
+        db.prepare('UPDATE account SET opening_cents=opening_cents+? WHERE id=?').run(delta,target.id);
+        db.prepare('INSERT INTO audit(entity,entity_id,action,snapshot) VALUES(?,?,?,?)').run('account',target.id,'balance_adjustment',JSON.stringify({before_cents:current,after_cents:targetBalance,date:now()}));
+      });
+      reply(res,200,{ok:true,adjusted:Boolean(delta)}); return;
     }
     if (url.pathname==='/api/categories' && req.method==='POST') {
       const data=await body(req), name=String(data.name||'').trim(); if (!name || name.length>40) throw new Error('Categoría no válida');

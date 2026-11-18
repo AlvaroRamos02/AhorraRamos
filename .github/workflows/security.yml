@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Revisar el historial de Git
+      - name: Revisar el historial y los archivos versionados
         id: scan
         shell: bash
         run: |
@@ -32,13 +32,23 @@ jobs:
             --output "$archive"
           printf '%s  %s\n' '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' "$archive" | sha256sum --check
           tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
-          "$RUNNER_TEMP/gitleaks" git --redact=100 --no-banner --log-opts=--all \
-            --report-format=json --report-path="$RUNNER_TEMP/gitleaks.json" .
+          snapshot="$(mktemp -d)"
+          git checkout-index --all --prefix="$snapshot/"
+
+          history_status=0
+          snapshot_status=0
+          "$RUNNER_TEMP/gitleaks" git --redact=100 --no-banner \
+            --log-opts='--all --full-history --diff-merges=first-parent' \
+            --report-format=json --report-path="$RUNNER_TEMP/gitleaks-history.json" . || history_status=$?
+          cd "$snapshot"
+          "$RUNNER_TEMP/gitleaks" dir --redact=100 --no-banner \
+            --report-format=json --report-path="$RUNNER_TEMP/gitleaks-snapshot.json" . || snapshot_status=$?
+          (( history_status == 0 && snapshot_status == 0 ))
       - name: Publicar tabla de secretos
         if: ${{ !cancelled() }}
         env:
           SCAN_OUTCOME: ${{ steps.scan.outcome }}
-        run: node .github/scripts/security-summary.mjs gitleaks "$RUNNER_TEMP/gitleaks.json"
+        run: node .github/scripts/security-summary.mjs gitleaks "$RUNNER_TEMP/gitleaks-history.json" "$RUNNER_TEMP/gitleaks-snapshot.json"
 
   sca:
     name: Dependencias (npm audit)
@@ -64,21 +74,24 @@ jobs:
         run: node .github/scripts/security-summary.mjs npm-audit "$RUNNER_TEMP/npm-audit.json"
 
   sast:
-    name: Código JavaScript (Semgrep)
+    name: Análisis estático (Semgrep)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - name: Analizar el código fuente
+      - name: Analizar el repositorio
         id: scan
         run: |
-          docker run --rm --volume "$GITHUB_WORKSPACE/src:/src:ro" --workdir /src \
+          snapshot="$(mktemp -d)"
+          git checkout-index --all --prefix="$snapshot/"
+          docker run --rm --volume "$snapshot:/repo:ro" --workdir /repo \
             semgrep/semgrep:1.186.0@sha256:6e1b04340e60e910fbb4ddbf3c857ab0918f064417ad5ac530014ccb3cf8c8f1 \
-            semgrep scan --config p/javascript --metrics=off --disable-version-check --error --strict --json . \
+            semgrep scan --config p/javascript --config p/github-actions \
+            --no-git-ignore --max-target-bytes=0 --metrics=off --disable-version-check --error --strict --json . \
             > "$RUNNER_TEMP/semgrep.json"
-      - name: Publicar tabla de JavaScript
+      - name: Publicar tabla de análisis estático
         if: ${{ !cancelled() }}
         env:
           SCAN_OUTCOME: ${{ steps.scan.outcome }}

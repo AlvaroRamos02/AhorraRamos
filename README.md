@@ -4,7 +4,7 @@ Consulta el saldo y los movimientos contabilizados de una cuenta ING España a t
 
 ## Configuración
 
-1. Usa Node.js 24.11 o superior.
+1. Usa Node.js 24.11 o superior y ejecuta `npm ci` para instalar los recursos de la interfaz.
 2. Registra una aplicación **Production** en [Enable Banking](https://enablebanking.com/cp/applications) y vincula tu cuenta en el acceso restringido. Guarda la clave privada descargada fuera del repositorio.
 3. Configura un certificado TLS local confiable para `127.0.0.1` con su clave fuera del repositorio. Registra el retorno `https://127.0.0.1:3000/api/banking/ing/callback` en el panel. Ajusta el puerto si cambias `PORT`.
 4. Copia [`.env.example`](.env.example) a `.env`. Indica el ID de la aplicación, las rutas de los archivos PEM y la URL de retorno registrada.

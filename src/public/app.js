@@ -1,5 +1,5 @@
 ﻿import {
-  bankDashboard, expenseCategories, formatDate, formatMoney, formatMonth, formatSyncDate, groupMovements,
+  bankDashboard, expenseCategories, formatChartMoney, formatDate, formatMoney, formatMonth, formatSyncDate, groupMovements,
   movementDirection, movementTotals, normalizeConcept, offsetMonth
 } from './domain.js';
 
@@ -13,7 +13,12 @@ const categoryEditor = $('#category-editor');
 const expenseCategory = $('#expense-category');
 const categorySave = $('#category-save');
 const categoryCancel = $('#category-cancel');
+const activitySeries = $('#activity-series');
 const controls = [search, direction, category, groupBy];
+const views = new Map([
+  ['resumen', 'Resumen'], ['analisis', 'Análisis'], ['comparativa', 'Comparativa mensual'],
+  ['movimientos', 'Movimientos'], ['conexion', 'Cuenta ING']
+]);
 const percents = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
 const integers = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 });
 
@@ -21,6 +26,7 @@ let state;
 let dashboard;
 let loadVersion = 0;
 let editedExpense;
+let focusCategory = false;
 
 expenseCategory.append(new Option('Automática', ''));
 for (const { id, label } of expenseCategories) expenseCategory.add(new Option(label, id));
@@ -155,8 +161,10 @@ function renderCategoryChart() {
   chart.replaceChildren();
   for (const entry of entries) {
     const ratio = entry.debits / state.summary.debits;
-    const button = element('button', '', 'category-row ' + toneClass(entry.tone));
+    const share = ratio < .001 ? '<' + percents.format(.001) : percents.format(ratio);
+    const button = element('button', '', 'category-row');
     button.type = 'button';
+    button.setAttribute('aria-label', `Ver cargos de ${entry.label}, ${formatMoney(entry.debits)}, ${share} del total`);
     const label = element('span', entry.label, 'category-label');
     const value = element('span', formatMoney(entry.debits), 'category-value');
     const track = element('span', '', 'category-track');
@@ -164,14 +172,14 @@ function renderCategoryChart() {
     fill.style.width = (ratio * 100) + '%';
     track.setAttribute('aria-hidden', 'true');
     track.append(fill);
-    button.append(label, value, track, element('small', countLabel(entry.count)), element('small', percents.format(ratio), 'category-value'));
+    button.append(label, value, element('small', share, 'category-share'), track);
     button.addEventListener('click', () => {
       direction.value = 'debit';
       category.value = entry.id;
       search.value = '';
       renderMovements();
-      category.focus({ preventScroll: true });
-      $('#movimientos').scrollIntoView({ block: 'start' });
+      focusCategory = true;
+      location.hash = 'movimientos';
     });
     chart.append(button);
   }
@@ -181,42 +189,89 @@ function renderActivity() {
   const days = dashboard?.days ?? [];
   const average = $('#daily-average');
   average.hidden = !days.length;
-  average.textContent = dashboard ? 'Media diaria de cargos: ' + formatMoney(dashboard.averageDailyDebits) +
+  average.textContent = dashboard ? 'Media de cargos ' + formatMoney(dashboard.averageDailyDebits) + '/día' +
     ' · ' + days.length + (days.length === 1 ? ' día consultado' : ' días consultados') : '';
-  const maximum = Math.max(0, ...days.map(day => Math.max(day.credits, day.debits)));
-  $('#activity').hidden = !maximum;
-  $('#activity-empty').hidden = Boolean(maximum);
+  const hasActivity = days.some(day => day.credits || day.debits);
+  $('#activity').hidden = activitySeries.disabled = !hasActivity;
+  $('#activity-empty').hidden = hasActivity;
   $('#activity-empty').textContent = dashboard ? 'No hay abonos ni cargos en los días consultados.' : 'La actividad aparecerá al cargar datos bancarios.';
-  if (!maximum) return;
+  if (!hasActivity) return;
 
+  const series = activitySeries.value;
+  $('#activity-inflow').hidden = series === 'outflow';
+  $('#activity-outflow').hidden = series === 'inflow';
+  const latest = days.findLastIndex(day => (series !== 'outflow' && day.credits) || (series !== 'inflow' && day.debits));
   renderBarChart('chart', days.map((day, index) => {
-    const showLabel = index === 0 || index === days.length - 1 || (index % 7 === 0 && index < days.length - 2);
+    const showLabel = index === 0 || index === days.length - 1 || (index % 7 === 0 && index < days.length - 3);
     return { ...day, label: showLabel ? String(Number(day.date.slice(-2))) : '', period: formatDate(day.date) };
-  }), maximum);
+  }), latest, series);
 }
 
-function renderBarChart(prefix, entries, maximum) {
-  const ticks = maximum ? [maximum, Math.round(maximum / 2), 0] : [null, null, 0];
-  $(`#${prefix}-scale`).replaceChildren(...ticks.map(value => element('span', value === null ? '' : formatMoney(value))));
+function renderBarChart(prefix, entries, initialIndex, visibleSeries = 'both') {
+  const series = [['inflow', 'credits', 'Abonos'], ['outflow', 'debits', 'Cargos']]
+    .filter(([name]) => visibleSeries === 'both' || name === visibleSeries);
+  const maximum = Math.max(0, ...entries.flatMap(entry => series.map(([, key]) => entry[key])));
+  const stepTarget = Math.max(1, maximum / 4);
+  const magnitude = 10 ** Math.floor(Math.log10(stepTarget));
+  const step = Math.ceil(magnitude * [1, 2, 2.5, 3, 4, 5, 6, 8, 10].find(multiplier => multiplier * magnitude >= stepTarget));
+  const limit = step * 4;
+  const ticks = maximum ? [limit, step * 3, step * 2, step, 0] : [0];
+  $(`#${prefix}-scale`).replaceChildren(...ticks.map(value => element('span', formatChartMoney(value))));
   const chart = $(`#${prefix}-bars`);
   const axis = $(`#${prefix}-axis`);
   const data = $(`#${prefix}-data`);
+  const selection = $(`#${prefix}-selection`);
+  chart.classList.toggle('flat', !maximum);
   chart.replaceChildren();
   axis.replaceChildren();
   data.replaceChildren();
-  for (const entry of entries) {
+  selection.replaceChildren();
+  let active;
+  function select(index) {
+    const button = chart.children[index];
+    const entry = entries[index];
+    if (active === button) return;
+    if (active) {
+      active.tabIndex = -1;
+      active.setAttribute('aria-pressed', 'false');
+    }
+    active = button;
+    button.tabIndex = 0;
+    button.setAttribute('aria-pressed', 'true');
+    selection.replaceChildren(
+      element('strong', entry.period),
+      ...series.map(([name, key, label]) => element('span', label + ' ' + formatMoney(entry[key]), 'chart-key ' + name))
+    );
+  }
+  for (const [index, entry] of entries.entries()) {
     const description = entry.period + ' · Abonos ' + formatMoney(entry.credits) + ' · Cargos ' + formatMoney(entry.debits);
-    const bars = element('div', '', 'chart-day');
-    bars.title = description;
-    for (const [name, amount] of [['inflow', entry.credits], ['outflow', entry.debits]]) {
+    const visibleDescription = [entry.period, ...series.map(([, key, label]) => label + ' ' + formatMoney(entry[key]))].join(' · ');
+    const bars = element('button', '', entry.partial ? 'chart-day partial' : 'chart-day');
+    bars.type = 'button';
+    bars.tabIndex = -1;
+    bars.setAttribute('aria-label', visibleDescription);
+    bars.setAttribute('aria-pressed', 'false');
+    bars.title = visibleDescription;
+    for (const [name, key] of series) {
       const bar = element('span', '', 'bar ' + name);
-      bar.style.height = (amount / (maximum || 1) * 100) + '%';
+      bar.style.height = (entry[key] / limit * 100) + '%';
       bars.append(bar);
     }
+    bars.addEventListener('click', () => select(index));
+    bars.addEventListener('keydown', event => {
+      const next = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: entries.length - 1 }[event.key];
+      if (!Number.isInteger(next)) return;
+      event.preventDefault();
+      if (next >= 0 && next < entries.length) {
+        select(next);
+        chart.children[next].focus();
+      }
+    });
     chart.append(bars);
     axis.append(element('span', entry.label));
     data.append(element('li', description));
   }
+  if (entries.length) select(initialIndex < 0 ? entries.length - 1 : initialIndex);
 }
 
 const dateRange = ({ from, to }) => formatDate(from) + ' – ' + formatDate(to);
@@ -232,7 +287,7 @@ function renderMonthlyAnalysis() {
     ...entry,
     label: formatMonth(entry.month) + (entry.partial ? '*' : ''),
     period: dateRange(entry) + (entry.partial ? ' (mes parcial)' : '')
-  })), Math.max(0, ...months.map(entry => Math.max(entry.credits, entry.debits))));
+  })), months.findIndex(entry => entry.month === state.month));
 
   $('#comparison-table').hidden = !comparison;
   const empty = $('#comparison-empty');
@@ -288,7 +343,7 @@ function render() {
   $('#net').textContent = dashboard ? numberWithSign(dashboard.net) : '—';
   $('#net').className = dashboard ? movementDirection(dashboard.net) : '';
   $('#credit-count').textContent = dashboard
-    ? 'Entradas en cuenta · ' + countLabel(dashboard.movements.filter(item => item.amountCents > 0).length)
+    ? countLabel(dashboard.movements.filter(item => item.amountCents > 0).length)
     : 'Entradas en cuenta';
   $('#debit-count').textContent = dashboard ? countLabel(dashboard.movements.filter(item => item.amountCents < 0).length) : 'Movimientos de salida';
   $('#balance-kind').textContent = balance
@@ -307,11 +362,11 @@ function render() {
       || (!connected && 'Autoriza el acceso de solo lectura a tu cuenta.')
       || (!lastSyncAt && 'Pendiente de la primera consulta.')
   ].filter(Boolean).join(' ');
-  $('#connect').hidden = !configured;
+  $('#connect').hidden = state.mobile || !configured;
   $('#connect').textContent = connected ? 'Reconectar ING' : 'Conectar ING';
   $('#connect').className = connected ? 'quiet' : 'primary';
   $('#sync').hidden = !configured || !connected;
-  $('#disconnect').hidden = !connected;
+  $('#disconnect').hidden = state.mobile || !connected;
 
   const selected = category.value;
   category.replaceChildren(new Option('Todas las categorías', 'all'));
@@ -347,25 +402,24 @@ async function load(requestedMonth = state?.month ?? '') {
 
 const changeMonth = value => load(value).catch(error => notice(error.message, true));
 
-function showView() {
-  const hash = location.hash || '#resumen';
-  const comparing = hash === '#comparativa';
-  const comparison = $('#comparativa');
-  const wasComparing = !comparison.hidden;
-  comparison.hidden = !comparing;
-  for (const selector of ['#overview', '#analisis', '#movimientos', '#coverage']) {
-    $(selector).hidden = comparing;
-  }
-  $('#page-title').textContent = comparing ? 'Comparativa mensual' : 'Resumen bancario';
-  $('.skip-link').href = comparing ? '#comparativa' : '#resumen';
+function showView(event) {
+  const hash = location.hash.slice(1);
+  const view = views.has(hash) ? hash : 'resumen';
+  for (const id of views.keys()) document.getElementById(id).hidden = id !== view;
+  $('#analisis').hidden = view !== 'resumen' && view !== 'analisis';
+  $('#apuntes').hidden = view !== 'resumen';
+  $('.period-control').hidden = $('#coverage').hidden = view === 'conexion';
+  const title = $('#page-title');
+  title.textContent = views.get(view);
   for (const link of document.querySelectorAll('.rail nav a')) {
-    if (link.hash === hash) link.setAttribute('aria-current', 'location');
+    if (link.hash === '#' + view) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
-  if (wasComparing !== comparing) {
-    const target = comparing ? $('#resumen') : document.getElementById(hash.slice(1));
-    target?.scrollIntoView();
+  if (event) {
+    window.scrollTo(0, 0);
+    (view === 'movimientos' && focusCategory ? category : title).focus({ preventScroll: true });
   }
+  focusCategory = false;
 }
 
 categoryCancel.addEventListener('click', () => categoryEditor.close());
@@ -408,6 +462,7 @@ $('#category-form').addEventListener('submit', async event => {
 });
 
 month.addEventListener('change', () => changeMonth(month.value));
+activitySeries.addEventListener('change', renderActivity);
 for (const [id, offset] of [['#prev-month', -1], ['#next-month', 1]]) {
   $(id).addEventListener('click', () => {
     const next = offsetMonth(month.value || state.month, offset);
@@ -458,7 +513,11 @@ $('#disconnect').addEventListener('click', () => {
 });
 
 const ingReturn = new URLSearchParams(location.search).get('ing');
-if (ingReturn) history.replaceState({}, '', location.pathname);
+if (ingReturn) history.replaceState({}, '', location.pathname + '#conexion');
+$('.skip-link').addEventListener('click', event => {
+  event.preventDefault();
+  $('#page-title').focus();
+});
 window.addEventListener('hashchange', showView);
 showView();
 async function loadInitialPanel() {

@@ -4,11 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AhorraRamos · Panel bancario</title>
+  <meta name="theme-color" content="#0b1018">
+  <link rel="manifest" href="/app.webmanifest">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="preload" href="/ui/space-grotesk.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/style.css">
   <script type="module" src="/app.js"></script>
 </head>
 <body>
-  <a class="skip-link" href="#resumen">Saltar al panel</a>
+  <a class="skip-link" href="#page-title">Saltar al contenido</a>
   <div class="layout">
     <aside class="rail">
       <a class="brand" href="#resumen">
@@ -16,19 +20,19 @@
         <span>Ahorra<span class="brand-accent">Ramos</span></span>
       </a>
       <nav aria-label="Secciones">
-        <a href="#resumen"><span aria-hidden="true">◫</span> Resumen</a>
-        <a href="#analisis"><span aria-hidden="true">◈</span> Análisis</a>
-        <a href="#comparativa"><span aria-hidden="true">▥</span> Comparativa</a>
-        <a href="#movimientos"><span aria-hidden="true">☷</span> Movimientos</a>
-        <a href="#conexion"><span aria-hidden="true">⬡</span> Cuenta ING</a>
+        <a href="#resumen" aria-current="page"><i class="icon layout-dashboard" aria-hidden="true"></i>Resumen</a>
+        <a href="#analisis"><i class="icon activity" aria-hidden="true"></i>Análisis</a>
+        <a href="#comparativa"><i class="icon chart-column-increasing" aria-hidden="true"></i>Comparativa</a>
+        <a href="#movimientos"><i class="icon list" aria-hidden="true"></i>Movimientos</a>
+        <a href="#conexion"><i class="icon landmark" aria-hidden="true"></i>Cuenta ING</a>
       </nav>
       <div class="rail-footer"><span class="status-dot" aria-hidden="true"></span> Aplicación local</div>
     </aside>
 
-    <main id="resumen">
+    <main>
       <header class="page-head">
         <div>
-          <h1 id="page-title">Resumen bancario</h1>
+          <h1 id="page-title" tabindex="-1">Resumen</h1>
           <p id="coverage" class="muted">Cargando consulta bancaria…</p>
         </div>
         <div class="period-control">
@@ -40,53 +44,32 @@
       <p id="notice" class="notice" role="status" hidden></p>
       <button id="retry-load" class="quiet" type="button" hidden>Reintentar carga del panel</button>
 
-      <section id="overview" class="overview" aria-label="Saldo y métricas mensuales">
-        <article class="balance-panel" id="conexion">
-          <div class="bank-header">
-            <div class="bank-name"><span class="bank-mark" aria-hidden="true">ING</span><h2>ING España</h2></div>
-            <span id="connection-status" class="connection-status" hidden></span>
-          </div>
+      <section id="resumen" class="overview" aria-label="Saldo y métricas mensuales">
+        <article class="balance-panel">
           <div class="balance-figure">
-            <p id="balance-kind">Último saldo bancario</p>
+            <h2 id="balance-kind">Último saldo bancario</h2>
             <strong id="balance">—</strong>
           </div>
-          <p id="bank-status" class="muted" aria-live="polite"></p>
-          <div class="bank-actions">
-            <button id="connect" class="primary" type="button" hidden>Conectar ING</button>
-            <button id="sync" class="primary" type="button" hidden><span aria-hidden="true">↻</span> Actualizar ahora</button>
-            <button id="disconnect" class="quiet" type="button" hidden>Desconectar</button>
-          </div>
+          <a class="quiet account-link" href="#conexion"><span class="bank-mark" aria-hidden="true">ING</span> Cuenta ING <span aria-hidden="true">›</span></a>
         </article>
         <div class="metrics">
           <article class="metric">
-            <span class="metric-icon tone-mint" aria-hidden="true">↙</span>
-            <h2>Abonos del mes</h2>
+            <h2><i class="icon arrow-down-left" aria-hidden="true"></i>Abonos del mes</h2>
             <strong id="credits">—</strong>
             <small id="credit-count">Entradas en cuenta</small>
           </article>
           <article class="metric">
-            <span class="metric-icon tone-peach" aria-hidden="true">↗</span>
-            <h2>Cargos del mes</h2>
+            <h2><i class="icon arrow-up-right" aria-hidden="true"></i>Cargos del mes</h2>
             <strong id="debits">—</strong>
             <small id="debit-count">Movimientos de salida</small>
           </article>
           <article class="metric">
-            <span class="metric-icon tone-violet" aria-hidden="true">↔</span>
             <h2>Flujo neto ajustado</h2>
             <strong id="net">—</strong>
-            <small>Abonos menos cargos, sin aportaciones a acciones</small>
-          </article>
-          <article class="metric">
-            <span class="metric-icon tone-blue" aria-hidden="true">◷</span>
-            <h2>Nómina prevista</h2>
-            <strong id="salary-date">—</strong>
-            <small>Fecha estimada de cobro</small>
-          </article>
-          <article class="metric investment-metric">
-            <span class="metric-icon tone-violet" aria-hidden="true">↗</span>
-            <h2>Aportaciones a acciones</h2>
-            <strong id="investment-debits">—</strong>
-            <small>Transferencias emitidas en el mes</small>
+            <details class="metric-detail">
+              <summary>Cómo se calcula</summary>
+              <p>Abonos menos cargos, sin aportaciones a acciones.</p>
+            </details>
           </article>
         </div>
       </section>
@@ -94,45 +77,62 @@
       <section id="analisis" class="analysis-grid" aria-label="Análisis de la cuenta">
         <article class="panel">
           <div class="panel-head">
-            <div><h2>Actividad diaria</h2><p class="muted">Entradas y salidas contabilizadas · EUR</p></div>
-            <div class="legend"><span>Abonos</span><span>Cargos</span></div>
+            <div><h2>Actividad diaria</h2><p id="daily-average" class="muted" hidden></p></div>
+            <select id="activity-series" class="chart-filter" aria-label="Series de actividad diaria" disabled>
+              <option value="both">Abonos y cargos</option>
+              <option value="inflow">Solo abonos</option>
+              <option value="outflow">Solo cargos</option>
+            </select>
           </div>
           <p id="activity-empty" class="empty chart-empty">La actividad aparecerá al cargar datos bancarios.</p>
           <div id="activity" hidden>
-            <div class="chart" aria-hidden="true">
-              <div id="chart-scale" class="chart-scale"></div>
-              <div class="chart-body"><div id="chart-bars" class="chart-bars"></div><div id="chart-axis" class="chart-axis"></div></div>
+            <div class="legend activity-legend"><span id="activity-inflow">Abonos</span><span id="activity-outflow" class="outflow">Cargos</span></div>
+            <div class="chart">
+              <div id="chart-scale" class="chart-scale" aria-hidden="true"></div>
+              <div><div id="chart-bars" class="chart-bars" role="group" aria-label="Importes por día. Usa las flechas para cambiar de día."></div><div id="chart-axis" class="chart-axis" aria-hidden="true"></div></div>
             </div>
-            <details class="chart-details" id="chart-details">
+            <div id="chart-selection" class="chart-selection"></div>
+            <details class="chart-details">
               <summary>Consultar importes por día</summary>
               <ul id="chart-data"></ul>
             </details>
           </div>
-          <p id="daily-average" class="muted" hidden></p>
         </article>
 
         <article class="panel">
           <div class="panel-head">
-            <div><h2>Cargos por categoría</h2><p class="muted">Selecciona una categoría para filtrar</p></div>
+            <div><h2>Cargos por categoría</h2><p class="muted">Importe y porcentaje del total</p></div>
           </div>
           <p id="category-empty" class="empty chart-empty">El desglose aparecerá cuando haya cargos.</p>
           <div id="categories" class="categories" hidden></div>
         </article>
       </section>
 
-      <section id="comparativa" class="analysis-grid monthly-analysis" aria-label="Análisis mensual" tabindex="-1" hidden>
+      <section id="apuntes" class="monthly-notes" aria-label="Otras cifras del mes">
+        <article class="metric">
+          <h2>Nómina prevista</h2>
+          <strong id="salary-date">—</strong>
+        </article>
+        <article class="metric">
+          <h2>Aportaciones a acciones</h2>
+          <strong id="investment-debits">—</strong>
+        </article>
+      </section>
+
+      <section id="comparativa" class="analysis-grid monthly-analysis" aria-label="Análisis mensual" hidden>
         <article class="panel">
           <div class="panel-head">
-            <div><h2>Evolución mensual</h2><p class="muted">Abonos y cargos por mes · EUR</p></div>
-            <div class="legend"><span>Abonos</span><span>Cargos</span></div>
+            <h2>Evolución mensual</h2>
+            <div class="legend"><span>Abonos</span><span class="outflow">Cargos</span></div>
           </div>
           <p id="monthly-empty" class="empty chart-empty">La evolución aparecerá al cargar datos bancarios.</p>
           <div id="monthly-chart" hidden>
-            <div class="chart chart-monthly" aria-hidden="true">
-              <div id="monthly-scale" class="chart-scale"></div>
-              <div><div id="monthly-bars" class="chart-bars"></div><div id="monthly-axis" class="chart-axis"></div></div>
+            <div class="chart chart-monthly">
+              <div id="monthly-scale" class="chart-scale" aria-hidden="true"></div>
+              <div><div id="monthly-bars" class="chart-bars" role="group" aria-label="Importes por mes. Usa las flechas para cambiar de mes."></div><div id="monthly-axis" class="chart-axis" aria-hidden="true"></div></div>
             </div>
             <p id="monthly-partial" class="muted" hidden>* Mes con cobertura parcial</p>
+            <div id="monthly-selection" class="chart-selection"></div>
             <details class="chart-details">
               <summary>Consultar importes y fechas por mes</summary>
               <ul id="monthly-data"></ul>
@@ -152,9 +152,9 @@
         </article>
       </section>
 
-      <section id="movimientos" class="panel">
+      <section id="movimientos" class="panel" aria-labelledby="movement-title" hidden>
         <div class="panel-head ledger-head">
-          <div><h2>Movimientos contabilizados</h2><p id="movement-count" class="muted" aria-live="polite"></p></div>
+          <div><h2 id="movement-title">Movimientos contabilizados</h2><p id="movement-count" class="muted" aria-live="polite"></p></div>
           <button id="clear" class="quiet" type="button" hidden>Quitar filtros</button>
         </div>
         <div class="filters">
@@ -165,6 +165,18 @@
         </div>
         <p id="category-status" class="category-status" role="status"></p>
         <div id="movement-list"><p class="empty">Cargando movimientos…</p></div>
+      </section>
+      <section id="conexion" class="panel account-panel" aria-labelledby="bank-title" hidden>
+        <div class="bank-header">
+          <div class="bank-name"><span class="bank-mark" aria-hidden="true">ING</span><h2 id="bank-title">ING España</h2></div>
+          <span id="connection-status" class="connection-status" hidden></span>
+        </div>
+        <p id="bank-status" class="muted" aria-live="polite">Cargando estado de la cuenta…</p>
+        <div class="bank-actions">
+          <button id="sync" class="primary" type="button" hidden><span aria-hidden="true">↻</span> Actualizar ahora</button>
+          <button id="connect" class="primary" type="button" hidden>Conectar ING</button>
+          <button id="disconnect" class="quiet" type="button" hidden>Desconectar</button>
+        </div>
       </section>
       <footer class="page-footer">Enable Banking AIS · Solo lectura · EUR · Europe/Madrid</footer>
     </main>

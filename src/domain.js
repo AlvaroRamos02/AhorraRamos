@@ -244,6 +244,7 @@ export function bankDashboard({ month, period, summary, transactions }) {
 }
 
 const euros = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', useGrouping: 'always' });
+const compactEuros = new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 2 });
 const shortDate = new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeZone: 'UTC' });
 const shortMonth = new Intl.DateTimeFormat('es-ES', { month: 'short', timeZone: 'UTC' });
 const localDateTime = new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Madrid' });
@@ -252,6 +253,8 @@ export function formatMoney(cents) {
   const digits = String(Math.abs(cents)).padStart(3, '0');
   return euros.format(`${cents < 0 ? '-' : ''}${digits.slice(0, -2)}.${digits.slice(-2)}`);
 }
+
+export const formatChartMoney = cents => compactEuros.format(cents / 100) + '\u00a0€';
 
 export const formatDate = value => shortDate.format(new Date(value));
 export const formatMonth = value => shortMonth.format(new Date(`${value}-01`));

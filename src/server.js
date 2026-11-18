@@ -1,5 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
+import { isIP } from 'node:net';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
@@ -19,6 +20,16 @@ for (const hostname of ['127.0.0.1', 'localhost']) {
   const origin = new URL(`${scheme}://${hostname}:${port}`).origin;
   localOrigins.set(`${hostname}:${port}`, origin);
   if (port === (secure ? 443 : 80)) localOrigins.set(hostname, origin);
+}
+const mobileOrigin = process.env.MOBILE_ORIGIN;
+const mobileIps = new Set((process.env.MOBILE_TAILSCALE_IPS || '').split(',').map(value => value.trim()).filter(Boolean));
+const mobileUrl = mobileOrigin ? URL.parse(mobileOrigin) : null;
+if (mobileOrigin || mobileIps.size) {
+  if (!secure || !mobileUrl || mobileUrl.origin !== mobileOrigin || mobileUrl.protocol !== 'https:' ||
+      mobileUrl.port || !mobileUrl.hostname.endsWith('.ts.net') ||
+      !mobileIps.size || [...mobileIps].some(ip => !isIP(ip))) {
+    throw new Error('Configura MOBILE_ORIGIN con la dirección HTTPS de Tailscale Serve y MOBILE_TAILSCALE_IPS con las IP de un único móvil.');
+  }
 }
 const now = () => madridDate();
 const dateTimeNow = () => new Date().toISOString();
@@ -216,7 +227,15 @@ function scheduleIngSynchronization() {
 
 const handler=async(req,res)=>{
   try {
-    const origin = localOrigins.get(req.headers.host);
+    const mobile = Boolean(mobileUrl && req.headers.host === mobileUrl.host);
+    const forwarded = req.headers['x-forwarded-host'] !== undefined;
+    if ((forwarded || mobile) && (!mobile || req.socket.remoteAddress !== '127.0.0.1' ||
+        req.headers['x-forwarded-host'] !== mobileUrl.host ||
+        req.headers['x-forwarded-proto'] !== 'https' ||
+        !mobileIps.has(req.headers['x-forwarded-for']))) {
+      fail(res,403,'Dispositivo no autorizado'); return;
+    }
+    const origin = mobile ? mobileUrl.origin : localOrigins.get(req.headers.host);
     if (!origin) { fail(res,403,'Host no permitido'); return; }
     const url=URL.parse(req.url,origin);
     if (!url || url.origin!==origin) { fail(res,400,'Ruta no válida'); return; }
@@ -224,10 +243,14 @@ const handler=async(req,res)=>{
     if (req.method==='GET' && asset) {
       const [path, mime] = asset;
       const content = await readFile(join(root,path));
-      res.writeHead(200,{...privateHeaders,'Content-Type':`${mime}; charset=utf-8`,'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"});
+      const contentType = (mime.startsWith('image/') || mime.startsWith('font/')) ? mime : `${mime}; charset=utf-8`;
+      res.writeHead(200,{...privateHeaders,'Content-Type':contentType,'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"});
       res.end(content); return;
     }
     if (!url.pathname.startsWith('/api/')) { fail(res,404,'No encontrado'); return; }
+    if (mobile && ['/api/banking/ing/connect', '/api/banking/ing/callback', '/api/banking/ing/disconnect'].includes(url.pathname)) {
+      fail(res,403,'Gestiona el permiso de ING desde el PC.'); return;
+    }
     if (url.pathname==='/api/banking/ing/callback' && req.method==='GET') {
       await completeIngAuthorization(req,res,url,origin); return;
     }
@@ -235,7 +258,7 @@ const handler=async(req,res)=>{
     const fetchSite = req.headers['sec-fetch-site'];
     if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') { fail(res,403,'Origen no permitido'); return; }
     if (url.pathname==='/api/state' && req.method==='GET') {
-      reply(res,200,appState(url.searchParams.get('month'))); return;
+      reply(res,200,{ ...appState(url.searchParams.get('month')), ...(mobile && { mobile: true }) }); return;
     }
     if (url.pathname==='/api/movements/category' && req.method==='POST') {
       await changeExpenseCategory(req,res); return;
@@ -286,9 +309,16 @@ const handler=async(req,res)=>{
 const assets = new Map([
   ['/', ['public/index.html', 'text/html']],
   ['/app.js', ['public/app.js', 'text/javascript']],
+  ['/app.webmanifest', ['public/app.webmanifest', 'application/manifest+json']],
+  ['/icon-192.png', ['public/icon-192.png', 'image/png']],
+  ['/icon-512.png', ['public/icon-512.png', 'image/png']],
+  ['/ui/space-grotesk.woff2', ['../node_modules/@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2', 'font/woff2']],
   ['/style.css', ['public/style.css', 'text/css']],
   ['/domain.js', ['domain.js', 'text/javascript']]
 ]);
+for (const icon of ['layout-dashboard', 'activity', 'chart-column-increasing', 'list', 'landmark', 'arrow-down-left', 'arrow-up-right']) {
+  assets.set('/ui/' + icon + '.svg', ['../node_modules/lucide-static/icons/' + icon + '.svg', 'image/svg+xml']);
+}
 if (Boolean(tlsKeyPath) !== Boolean(tlsCertPath)) throw new Error('Configura los dos archivos TLS locales, clave y certificado.');
 const server=secure?https.createServer({key:readFileSync(tlsKeyPath),cert:readFileSync(tlsCertPath)},handler):http.createServer(handler);
 server.listen(port,'127.0.0.1',()=>{scheduleIngSynchronization();console.log(`AhorraRamos: ${scheme}://127.0.0.1:${port}`);});

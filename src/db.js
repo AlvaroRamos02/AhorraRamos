@@ -13,8 +13,6 @@ const connectionSchema = `CREATE TABLE IF NOT EXISTS ing_connection (
 )`;
 
 db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
-CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY CHECK(id=1), salt TEXT NOT NULL, password_hash TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS session (token_hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS expense_category_override (
   account_id TEXT NOT NULL,
   movement_key TEXT NOT NULL,

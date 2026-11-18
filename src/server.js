@@ -188,7 +188,9 @@ async function completeIngAuthorization(req,res,url,origin) {
       db.prepare('DELETE FROM expense_category_override WHERE account_id<>?').run(selected.uid);
       db.prepare(`INSERT INTO ing_connection(id,provider_session_id,provider_account_id,connected_at) VALUES(1,?,?,?)
         ON CONFLICT(id) DO UPDATE SET provider_session_id=excluded.provider_session_id,
-        provider_account_id=excluded.provider_account_id,connected_at=excluded.connected_at,last_sync_at=NULL,last_sync_error=NULL,snapshot=NULL`)
+        provider_account_id=excluded.provider_account_id,connected_at=excluded.connected_at,last_sync_error=NULL,
+        last_sync_at=CASE WHEN ing_connection.provider_account_id=excluded.provider_account_id THEN ing_connection.last_sync_at END,
+        snapshot=CASE WHEN ing_connection.provider_account_id=excluded.provider_account_id THEN ing_connection.snapshot END`)
         .run(sessionId,selected.uid,dateTimeNow());
     });
     await synchronizeIng().catch(()=>{});

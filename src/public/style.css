@@ -272,22 +272,49 @@ main { width: min(100%, 1520px); margin-inline: auto; padding: 36px clamp(22px, 
   .layout { display: block; }
   .rail { position: static; height: auto; flex-direction: row; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 13px 22px; border-right: 0; border-bottom: 1px solid var(--line); }
   .rail nav { display: flex; flex-wrap: wrap; gap: 2px; }
-  .rail nav a { padding: 6px 8px; font-size: .8rem; }
+  .rail nav a { min-height: 44px; padding: 6px 8px; font-size: .8rem; }
   .rail-footer { display: none; }
   main { padding-top: 24px; }
+}
+@media (max-width: 760px) {
+  .analysis-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 650px) {
   main { padding: 22px 14px; }
   .rail { padding-inline: 14px; }
-  .rail nav { width: 100%; justify-content: space-between; }
-  .rail nav a { padding-inline: 4px; gap: 4px; }
+  .rail nav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: 100%; gap: 4px; }
+  .rail nav a { grid-column: span 2; justify-content: center; padding-inline: 2px; gap: 4px; }
+  .rail nav a:nth-last-child(-n+2) { grid-column: span 3; }
   .page-head { align-items: flex-start; flex-direction: column; margin-bottom: 16px; }
-  .overview, .analysis-grid { grid-template-columns: minmax(0, 1fr); gap: 11px; }
+  .period-control { width: 100%; min-height: 44px; }
+  .period-control button { flex: 0 0 44px; }
+  .period-control input { flex: 1; }
+  .overview { grid-template-columns: minmax(0, 1fr); }
+  .overview, .analysis-grid { gap: 11px; }
   .balance-panel { padding: 17px; }
   .metrics { gap: 9px; }
   .metric { padding: 11px; }
   .metric-icon { width: 24px; height: 24px; }
+  .panel-head { flex-wrap: wrap; gap: 8px; }
+  .legend { justify-content: flex-start; }
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .group-totals { flex-direction: column; align-items: flex-end; }
-  .list-row { gap: 7px; padding-inline: 8px; }
+  .filters .search-field, .filters label:last-child { grid-column: 1 / -1; }
+  .period-control input, .filters input, .filters select, #expense-category { font-size: 1rem; }
+  .primary, .quiet, .filters input, .filters select, #expense-category,
+  .chart-details summary, .category-edit { min-height: 44px; }
+  .chart-details summary { align-content: center; }
+  .group-heading, .list-row { grid-template-columns: auto minmax(0, 1fr) fit-content(42%); }
+  .group-totals { flex-direction: column; align-items: flex-end; text-align: right; }
+  .list-row { align-items: start; gap: 7px; padding-inline: 8px; }
+  .amount, .group-totals { overflow-wrap: anywhere; }
+  .amount { text-align: right; }
+}
+@media (max-width: 400px) {
+  .rail nav a span { display: none; }
+  .filters { grid-template-columns: minmax(0, 1fr); }
+  .comparison-table { font-size: .75rem; }
+  .comparison-table th, .comparison-table td { padding-inline: 2px; }
+  .comparison-table th:not(:first-child) { width: 23%; }
+  .chart-monthly .chart-axis { font-size: .7rem; }
+  .chart-monthly .chart-axis span { overflow-wrap: anywhere; }
 }

@@ -3,3 +3,5 @@
 Lee [AGENTS.md](AGENTS.md) y [el contexto del proyecto](docs/PROJECT_CONTEXT.md). Actualiza el contexto cuando cambie una regla o el comportamiento observado.
 
 Mantén los cambios y commits pequeños. Verifica el código afectado con pruebas dirigidas y usa datos sintéticos. Revisa los archivos preparados antes de confirmar. Mantén `.env`, `data/`, credenciales y copias de SQLite fuera de Git.
+
+El flujo **Seguridad** de GitHub Actions se ejecuta al subir cambios a `main`, al abrir o actualizar una solicitud de cambios hacia esa rama, los lunes y bajo demanda. Gitleaks revisa el historial con los valores detectados ocultos, `npm audit` comprueba el árbol fijado en `package-lock.json` y falla con vulnerabilidades de gravedad moderada o superior, y Semgrep analiza el JavaScript de `src/`.

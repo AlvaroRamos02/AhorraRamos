@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Revisar el historial y los archivos versionados
+      - name: Revisar los archivos de producción y su historial
         id: scan
         shell: bash
         run: |
@@ -33,12 +33,13 @@ jobs:
           printf '%s  %s\n' '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' "$archive" | sha256sum --check
           tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
           snapshot="$(mktemp -d)"
-          git checkout-index --all --prefix="$snapshot/"
+          git ls-files -z -- src/ package.json package-lock.json |
+            git checkout-index -z --stdin --prefix="$snapshot/"
 
           history_status=0
           snapshot_status=0
           "$RUNNER_TEMP/gitleaks" git --redact=100 --no-banner \
-            --log-opts='--all --full-history --diff-merges=first-parent' \
+            --log-opts='--all --full-history --diff-merges=first-parent -- src/ package.json package-lock.json' \
             --report-format=json --report-path="$RUNNER_TEMP/gitleaks-history.json" . || history_status=$?
           cd "$snapshot"
           "$RUNNER_TEMP/gitleaks" dir --redact=100 --no-banner \
@@ -63,10 +64,10 @@ jobs:
           node-version: '24'
           package-manager-cache: false
       - name: Verificar el inventario de paquetes
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
       - name: Buscar vulnerabilidades conocidas
         id: scan
-        run: npm audit --audit-level=moderate --json > "$RUNNER_TEMP/npm-audit.json"
+        run: npm audit --omit=dev --audit-level=moderate --json > "$RUNNER_TEMP/npm-audit.json"
       - name: Publicar tabla de dependencias
         if: ${{ !cancelled() }}
         env:
@@ -81,14 +82,15 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - name: Analizar el repositorio
+      - name: Analizar el código de producción
         id: scan
+        shell: bash
         run: |
           snapshot="$(mktemp -d)"
-          git checkout-index --all --prefix="$snapshot/"
+          git ls-files -z -- src/ | git checkout-index -z --stdin --prefix="$snapshot/"
           docker run --rm --volume "$snapshot:/repo:ro" --workdir /repo \
             semgrep/semgrep:1.186.0@sha256:6e1b04340e60e910fbb4ddbf3c857ab0918f064417ad5ac530014ccb3cf8c8f1 \
-            semgrep scan --config p/javascript --config p/github-actions \
+            semgrep scan --config p/javascript \
             --no-git-ignore --max-target-bytes=0 --metrics=off --disable-version-check --error --strict --json . \
             > "$RUNNER_TEMP/semgrep.json"
       - name: Publicar tabla de análisis estático

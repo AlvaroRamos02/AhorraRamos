@@ -23,6 +23,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Revisar el historial de Git
+        id: scan
         shell: bash
         run: |
           archive="$RUNNER_TEMP/gitleaks.tar.gz"
@@ -31,7 +32,13 @@ jobs:
             --output "$archive"
           printf '%s  %s\n' '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' "$archive" | sha256sum --check
           tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
-          "$RUNNER_TEMP/gitleaks" git --redact=100 --no-banner --log-opts=--all .
+          "$RUNNER_TEMP/gitleaks" git --redact=100 --no-banner --log-opts=--all \
+            --report-format=json --report-path="$RUNNER_TEMP/gitleaks.json" .
+      - name: Publicar tabla de secretos
+        if: ${{ !cancelled() }}
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+        run: node .github/scripts/security-summary.mjs gitleaks "$RUNNER_TEMP/gitleaks.json"
 
   sca:
     name: Dependencias (npm audit)
@@ -48,7 +55,13 @@ jobs:
       - name: Verificar el inventario de paquetes
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Buscar vulnerabilidades conocidas
-        run: npm audit --audit-level=moderate
+        id: scan
+        run: npm audit --audit-level=moderate --json > "$RUNNER_TEMP/npm-audit.json"
+      - name: Publicar tabla de dependencias
+        if: ${{ !cancelled() }}
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+        run: node .github/scripts/security-summary.mjs npm-audit "$RUNNER_TEMP/npm-audit.json"
 
   sast:
     name: Código JavaScript (Semgrep)
@@ -59,7 +72,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Analizar el código fuente
+        id: scan
         run: |
           docker run --rm --volume "$GITHUB_WORKSPACE/src:/src:ro" --workdir /src \
             semgrep/semgrep:1.186.0@sha256:6e1b04340e60e910fbb4ddbf3c857ab0918f064417ad5ac530014ccb3cf8c8f1 \
-            semgrep scan --config p/javascript --metrics=off --disable-version-check --error --strict --text .
+            semgrep scan --config p/javascript --metrics=off --disable-version-check --error --strict --json . \
+            > "$RUNNER_TEMP/semgrep.json"
+      - name: Publicar tabla de JavaScript
+        if: ${{ !cancelled() }}
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+        run: node .github/scripts/security-summary.mjs semgrep "$RUNNER_TEMP/semgrep.json"

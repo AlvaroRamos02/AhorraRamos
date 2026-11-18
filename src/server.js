@@ -1,166 +1,292 @@
 import http from 'node:http';
+import https from 'node:https';
 import { readFile } from 'node:fs/promises';
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { createInterface } from 'node:readline';
+import { readFileSync } from 'node:fs';
+import { createHash, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { db, atomic, state } from './db.js';
-import { salaryDate, parseCents, validDate, summarize } from './domain.js';
+import { atomic, db } from './db.js';
+import { bankingMonth, expenseCategories, isInvestmentTransfer, madridDate, monthlyBankAnalysis, salaryDate } from './domain.js';
+import { authorizeIngSession, closeIngSession, ingConfiguration, ingIsConfigured, providerIdIsValid, readIngAccount, startIngAuthorization } from './enable-banking.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 3000);
-const hash = x => createHash('sha256').update(x).digest('hex');
-const passwordHash = (password,salt) => scryptSync(password,salt,64).toString('hex');
-const now = () => new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const monthNow = () => new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit'}).format(new Date());
-const reply = (res, status, body) => { res.writeHead(status, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); res.end(JSON.stringify(body)); };
+const tlsKeyPath=process.env.LOCAL_TLS_KEY_PATH, tlsCertPath=process.env.LOCAL_TLS_CERT_PATH;
+const secure=Boolean(tlsKeyPath);
+const scheme=secure?'https':'http';
+const localOrigins = new Map();
+for (const hostname of ['127.0.0.1', 'localhost']) {
+  const origin = new URL(`${scheme}://${hostname}:${port}`).origin;
+  localOrigins.set(`${hostname}:${port}`, origin);
+  if (port === (secure ? 443 : 80)) localOrigins.set(hostname, origin);
+}
+const now = () => madridDate();
+const dateTimeNow = () => new Date().toISOString();
+const privateHeaders = {
+  'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Cross-Origin-Resource-Policy': 'same-origin'
+};
+const reply = (res, status, body) => { res.writeHead(status, {...privateHeaders,'Content-Type':'application/json; charset=utf-8'}); res.end(JSON.stringify(body)); };
 const fail = (res, status, message) => reply(res,status,{error:message});
-const cookie = req => (req.headers.cookie || '').split(';').map(x=>x.trim()).find(x=>x.startsWith('session='))?.slice(8);
-const authenticated = req => { const token=cookie(req); if (!token || !/^[a-f0-9]{64}$/.test(token)) return false; return !!db.prepare('SELECT 1 FROM session WHERE token_hash=? AND expires_at>?').get(hash(token),Date.now()); };
-const setSession = res => { const token=randomBytes(32).toString('hex'); db.prepare('INSERT INTO session(token_hash,expires_at) VALUES(?,?)').run(hash(token),Date.now()+7*86400000); res.setHeader('Set-Cookie',`session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800`); };
-async function body(req) {
-  if (!req.headers['content-type']?.startsWith('application/json')) throw new Error('Se requiere JSON');
-  let value=''; for await (const chunk of req) { value+=chunk; if (value.length>20000) throw new Error('Solicitud demasiado grande'); }
-  return JSON.parse(value);
-}
-async function readPassword(prompt, rl) {
-  if (rl) return new Promise(resolve=>rl.question(prompt,resolve));
-  process.stdout.write(prompt);
-  process.stdin.setRawMode(true); process.stdin.resume();
-  return new Promise((resolve,reject)=>{
-    let value='';
-    const finish=(answer,error)=>{process.stdin.off('data',onData);process.stdin.setRawMode(false);process.stdin.pause();process.stdout.write('\n');error?reject(error):resolve(answer);};
-    const onData=chunk=>{for(const char of chunk.toString()){
-      if(char==='\u0003'){finish('',new Error('Configuración cancelada'));return;}
-      if(char==='\r'||char==='\n'){finish(value);return;}
-      if(char==='\u007f'||char==='\b'){value=value.slice(0,-1);continue;}
-      if(char>=' '&&char<='~'||char.charCodeAt(0)>=128)value+=char;
-    }};
-    process.stdin.on('data',onData);
-  });
-}
-async function configurePassword() {
-  const existing=db.prepare('SELECT 1 FROM user WHERE id=1').get();
-  let password,confirmation;
-  if(process.stdin.isTTY) {
-    password=await readPassword('Nueva contraseña (mínimo 12 caracteres): ');
-    confirmation=await readPassword('Repite la contraseña: ');
-  } else {
-    const rl=createInterface({input:process.stdin,output:process.stdout});
-    process.stdout.write('Nueva contraseña (mínimo 12 caracteres): Repite la contraseña: ');
-    const lines=[]; for await(const line of rl) lines.push(line); rl.close();
-    password=lines[0]||''; confirmation=lines[1]||'';
+const cookie = (req, name) => (req.headers.cookie || '').split(';').map(x=>x.trim()).find(x=>x.startsWith(name+'='))?.slice(name.length+1);
+function ingConnection() { return db.prepare('SELECT * FROM ing_connection WHERE id=1').get(); }
+const expenseCategoryIds = new Set(expenseCategories.map(({ id }) => id));
+const readSnapshot = connection => connection?.snapshot ? JSON.parse(connection.snapshot) : null;
+
+function expenseKeys(account, transactions) {
+  const keys = new Map();
+  const occurrences = new Map();
+  const hash = (kind, value) => createHash('sha256').update(JSON.stringify([account, kind, value])).digest('hex');
+  for (const item of transactions) {
+    const candidates = [];
+    if (item.referenceHash) candidates.push(hash('reference', item.referenceHash));
+    candidates.push(hash('details', [item.date, item.amountCents, item.note]));
+    keys.set(item, candidates);
+    for (const key of candidates) occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
   }
-  if(password.length<12) throw new Error('La contraseña debe tener 12 caracteres como mínimo.');
-  if(password!==confirmation) throw new Error('Las contraseñas no coinciden.');
-  const salt=randomBytes(16).toString('hex');
-  atomic(()=>{
-    if(existing) db.prepare('UPDATE user SET salt=?,password_hash=? WHERE id=1').run(salt,passwordHash(password,salt));
-    else db.prepare('INSERT INTO user(id,salt,password_hash) VALUES(1,?,?)').run(salt,passwordHash(password,salt));
-    db.prepare('DELETE FROM session').run();
-  });
-  console.log(`${existing?'Contraseña cambiada':'Contraseña configurada'}; las sesiones anteriores se han cerrado. Inicia la aplicación con \`npm start\`.`);
-}
-function account(id) { const a=db.prepare('SELECT * FROM account WHERE id=?').get(Number(id)); if (!a) throw new Error('Cuenta no encontrada'); return a; }
-function soleAccount() { const a=db.prepare('SELECT * FROM account ORDER BY id LIMIT 1').get(); if (!a) throw new Error('Configura tu cuenta antes de registrar movimientos'); return a; }
-function category(id) { const c=db.prepare('SELECT * FROM category WHERE id=? AND archived=0').get(Number(id)); if (!c) throw new Error('Categoría no encontrada'); return c; }
-function audit(id,action,snapshot) { db.prepare('INSERT INTO audit(entity,entity_id,action,snapshot) VALUES(?,?,?,?)').run('transaction',id,action,JSON.stringify(snapshot)); }
-function parseBalance(value) { const raw=String(value??'').trim(); return /^0(?:[.,]0{1,2})?$/.test(raw) ? 0 : parseCents(raw); }
-function transactionInput(data) {
-  const type=String(data.type || ''); if (!['income','expense'].includes(type)) throw new Error('Tipo no válido');
-  const amount=parseCents(String(data.amount || ''));
-  const date=validDate(data.date);
-  const a=soleAccount();
-  const c=type==='expense' ? category(data.categoryId) : null;
-  const note=String(data.note || '').trim(); if (note.length>160) throw new Error('Concepto demasiado largo');
-  return {type,amount,date,accountId:a.id,destinationId:null,categoryId:c?.id || null,note};
-}
-function insertTransaction(t,salaryMonth=null) {
-  const result=db.prepare(`INSERT INTO transaction_entry(type,amount_cents,date,account_id,destination_id,category_id,note,salary_month) VALUES(?,?,?,?,?,?,?,?)`).run(t.type,t.amount,t.date,t.accountId,t.destinationId,t.categoryId,t.note,salaryMonth);
-  audit(Number(result.lastInsertRowid),'create',t); return Number(result.lastInsertRowid);
+  return new Map([...keys].filter(([item]) => item.amountCents < 0)
+    .map(([item, candidates]) => [item, candidates.filter(key => occurrences.get(key) === 1)]));
 }
 
-const server=http.createServer(async(req,res)=>{
+function appState(requestedMonth) {
+  const today = now();
+  const month = /^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(requestedMonth ?? '') ? requestedMonth : today.slice(0, 7);
+  const connection = ingConnection();
+  const snapshot = readSnapshot(connection);
+  if (snapshot?.transactions.length) {
+    const account = connection.provider_account_id;
+    const keys = expenseKeys(account, snapshot.transactions);
+    const overrides = new Map(db.prepare(
+      'SELECT movement_key, category_id FROM expense_category_override WHERE account_id=?'
+    ).all(account).map(row => [row.movement_key, row.category_id]));
+    snapshot.transactions = snapshot.transactions.map(item => {
+      const { date, amountCents, note } = item;
+      const movement = { date, amountCents, note };
+      if (isInvestmentTransfer(item, process.env.INVESTMENT_TRANSFER_RECIPIENT)) movement.investmentTransfer = true;
+      const candidates = keys.get(item);
+      if (!candidates?.length) return movement;
+      return {
+        ...movement, id: candidates[0],
+        categoryOverride: candidates.map(key => overrides.get(key)).find(id => expenseCategoryIds.has(id)) ?? null
+      };
+    });
+  }
+  const lastSyncAt = connection?.last_sync_at ?? null;
+  return {
+    month,
+    salaryDate: salaryDate(Number(month.slice(0, 4)), Number(month.slice(5))),
+    banking: {
+      configured: ingIsConfigured(port),
+      connected: Boolean(connection),
+      lastSyncAt,
+      lastSyncError: connection?.last_sync_error ?? null
+    },
+    ...bankingMonth(snapshot, month, lastSyncAt),
+    monthly: monthlyBankAnalysis(snapshot, month, today, lastSyncAt)
+  };
+}
+
+async function readCategoryChange(req) {
+  if (req.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') return null;
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+    bytes += chunk.length;
+    if (bytes > 512) {
+      req.resume();
+      return null;
+    }
+    chunks.push(chunk);
+  }
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+  catch { return null; }
+}
+
+async function changeExpenseCategory(req, res) {
+  const { id, category } = (await readCategoryChange(req)) ?? {};
+  if (typeof id !== 'string' || !/^[0-9a-f]{64}$/.test(id) || (category !== null && !expenseCategoryIds.has(category))) {
+    fail(res,400,'El movimiento o la categoría no son válidos.'); return;
+  }
+  const connection = ingConnection();
+  const account = connection?.provider_account_id;
+  const snapshot = readSnapshot(connection);
+  const candidates = [...expenseKeys(account, snapshot?.transactions ?? []).values()].find(keys => keys.includes(id));
+  if (!candidates) { fail(res,409,'El cargo ya no se puede identificar. Actualiza los movimientos.'); return; }
+
+  atomic(() => {
+    const remove = db.prepare('DELETE FROM expense_category_override WHERE account_id=? AND movement_key=?');
+    for (const key of candidates) remove.run(account, key);
+    if (category !== null) {
+      db.prepare('INSERT INTO expense_category_override (account_id,movement_key,category_id) VALUES (?,?,?)')
+        .run(account, candidates[0], category);
+    }
+  });
+  reply(res,200,{ok:true});
+}
+let pendingIng=null;
+let ingSyncInFlight=null;
+async function synchronizeIng() {
+  const connection=ingConnection();
+  if (!connection) throw new Error('No hay una cuenta ING conectada.');
+  const sessionId=connection.provider_session_id;
+  if (ingSyncInFlight?.sessionId===sessionId) return ingSyncInFlight.work;
+  const work=(async()=>{
+    try {
+      const remote=await readIngAccount(ingConfiguration(port),connection.provider_account_id);
+      db.prepare('UPDATE ing_connection SET snapshot=?,last_sync_at=?,last_sync_error=NULL WHERE provider_session_id=?').run(JSON.stringify(remote),dateTimeNow(),sessionId);
+    } catch (error) {
+      db.prepare('UPDATE ing_connection SET last_sync_error=? WHERE provider_session_id=?').run('No se ha podido actualizar ING. Inténtalo de nuevo o reconecta la cuenta.',sessionId);
+      throw error;
+    }
+  })();
+  ingSyncInFlight={sessionId,work};
+  try { return await work; }
+  finally { if (ingSyncInFlight?.work===work) ingSyncInFlight=null; }
+}
+
+const ingCookie='__Secure-ing_return';
+const ingCookieHeader=(value,maxAge)=>`${ingCookie}=${value}; HttpOnly; Secure; SameSite=Lax; Path=/api/banking/ing/callback; Max-Age=${maxAge}`;
+function redirectIng(res,result) {
+  res.writeHead(303,{...privateHeaders,Location:`/?ing=${result}`});
+  res.end();
+}
+
+async function completeIngAuthorization(req,res,url,origin) {
+  const pending=pendingIng;
+  if (!pending || pending.active || pending.expiresAt<=Date.now() || new URL(pending.config.redirectUrl).origin!==origin ||
+      url.searchParams.get('state')!==pending.state ||
+      cookie(req,ingCookie)!==pending.verifier) {
+    redirectIng(res,'cancelled');
+    return;
+  }
+  res.setHeader('Set-Cookie',ingCookieHeader('',0));
+  pending.active=true;
+  const code=url.searchParams.get('code');
+  let sessionId;
   try {
-    const url=new URL(req.url,`http://127.0.0.1:${port}`);
-    if (req.method==='GET' && ['/', '/app.js','/style.css'].includes(url.pathname)) {
-      const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
-      const mime=name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html';
-      res.writeHead(200,{'Content-Type':`${mime}; charset=utf-8`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"});
-      res.end(await readFile(join(root,'public',name))); return;
+    if (!code || url.searchParams.has('error')) {
+      redirectIng(res,'cancelled');
+      return;
+    }
+    const session=await authorizeIngSession(pending.config,code);
+    sessionId=session?.session_id;
+    const selected=session?.accounts?.[0];
+    if (!providerIdIsValid(sessionId) || !Array.isArray(session.accounts) || session.accounts.length!==1 ||
+        !providerIdIsValid(selected?.uid) || (selected.currency && selected.currency!=='EUR') ||
+        session.aspsp?.name!=='ING' || session.aspsp.country!=='ES') {
+      throw new Error('ING debe autorizar exactamente una cuenta en EUR.');
+    }
+    if (pendingIng!==pending) throw new Error('La autorización local ha caducado.');
+    const previous=ingConnection();
+    if (previous && previous.provider_session_id!==sessionId) {
+      await closeIngSession(pending.config,previous.provider_session_id);
+      if (pendingIng!==pending) throw new Error('La autorización local ha caducado.');
+    }
+    atomic(() => {
+      db.prepare('DELETE FROM expense_category_override WHERE account_id<>?').run(selected.uid);
+      db.prepare(`INSERT INTO ing_connection(id,provider_session_id,provider_account_id,connected_at) VALUES(1,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET provider_session_id=excluded.provider_session_id,
+        provider_account_id=excluded.provider_account_id,connected_at=excluded.connected_at,last_sync_at=NULL,last_sync_error=NULL,snapshot=NULL`)
+        .run(sessionId,selected.uid,dateTimeNow());
+    });
+    await synchronizeIng().catch(()=>{});
+    redirectIng(res,'connected');
+  } catch {
+    if (providerIdIsValid(sessionId) && ingConnection()?.provider_session_id!==sessionId) {
+      closeIngSession(pending.config,sessionId).catch(()=>{});
+    }
+    redirectIng(res,'failed');
+  } finally {
+    if (pendingIng===pending) pendingIng=null;
+  }
+}
+function scheduleIngSynchronization() {
+  let lastRun='';
+  const check=()=>{
+    const values=Object.fromEntries(new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit'}).formatToParts(new Date()).map(part=>[part.type,part.value]));
+    const marker=`${values.year}-${values.month}-${values.day}-${values.hour}`;
+    if ((values.hour==='08'||values.hour==='20') && marker!==lastRun) { lastRun=marker; synchronizeIng().catch(()=>{}); }
+  };
+  check(); setInterval(check,60_000).unref();
+}
+
+const handler=async(req,res)=>{
+  try {
+    const origin = localOrigins.get(req.headers.host);
+    if (!origin) { fail(res,403,'Host no permitido'); return; }
+    const url=URL.parse(req.url,origin);
+    if (!url || url.origin!==origin) { fail(res,400,'Ruta no válida'); return; }
+    const asset = assets.get(url.pathname);
+    if (req.method==='GET' && asset) {
+      const [path, mime] = asset;
+      const content = await readFile(join(root,path));
+      res.writeHead(200,{...privateHeaders,'Content-Type':`${mime}; charset=utf-8`,'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"});
+      res.end(content); return;
     }
     if (!url.pathname.startsWith('/api/')) { fail(res,404,'No encontrado'); return; }
-    if (req.method!=='GET' && req.headers.origin !== `http://127.0.0.1:${port}` && req.headers.origin !== `http://localhost:${port}`) { fail(res,403,'Origen no permitido'); return; }
-    if (url.pathname==='/api/session' && req.method==='GET') { reply(res,200,{configured:!!db.prepare('SELECT 1 FROM user').get(),authenticated:authenticated(req)}); return; }
-    if (url.pathname==='/api/login' && req.method==='POST') {
-      const data=await body(req), user=db.prepare('SELECT * FROM user WHERE id=1').get();
-      if (!user || typeof data.password!=='string' || data.password.length>1024) { fail(res,401,'Contraseña incorrecta'); return; }
-      const actual=Buffer.from(passwordHash(data.password,user.salt),'hex'), expected=Buffer.from(user.password_hash,'hex');
-      if (!timingSafeEqual(actual,expected)) { fail(res,401,'Contraseña incorrecta'); return; }
-      setSession(res); reply(res,200,{ok:true}); return;
+    if (url.pathname==='/api/banking/ing/callback' && req.method==='GET') {
+      await completeIngAuthorization(req,res,url,origin); return;
     }
-    if (!authenticated(req)) { fail(res,401,'Inicia sesión'); return; }
-    if (url.pathname==='/api/logout' && req.method==='POST') { db.prepare('DELETE FROM session WHERE token_hash=?').run(hash(cookie(req))); res.setHeader('Set-Cookie','session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'); reply(res,200,{ok:true}); return; }
+    if ((req.method!=='GET' || req.headers.origin) && req.headers.origin!==origin) { fail(res,403,'Origen no permitido'); return; }
+    const fetchSite = req.headers['sec-fetch-site'];
+    if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') { fail(res,403,'Origen no permitido'); return; }
     if (url.pathname==='/api/state' && req.method==='GET') {
-      const month=/^\d{4}-(0[1-9]|1[0-2])$/.test(url.searchParams.get('month')||'')?url.searchParams.get('month'):monthNow();
-      const data=state(month); reply(res,200,{...data,month,summary:summarize(data.accounts,data.transactions,month),today:now()}); return;
+      reply(res,200,appState(url.searchParams.get('month'))); return;
     }
-    if (url.pathname==='/api/accounts' && req.method==='POST') {
-      if (db.prepare('SELECT 1 FROM account LIMIT 1').get()) throw new Error('Solo puedes tener una cuenta');
-      const data=await body(req), name=String(data.name||'').trim(), kind=String(data.kind||'');
-      if (!name || name.length>60 || !['checking','savings','cash','investment'].includes(kind)) throw new Error('Cuenta no válida');
-      const opening=data.opening ? parseCents(String(data.opening)) : 0;
-      const openingDate=validDate(data.openingDate);
-      db.prepare('INSERT INTO account(name,kind,opening_cents,opening_date) VALUES(?,?,?,?)').run(name,kind,opening,openingDate); reply(res,201,{ok:true}); return;
+    if (url.pathname==='/api/movements/category' && req.method==='POST') {
+      await changeExpenseCategory(req,res); return;
     }
-    const balanceMatch=url.pathname.match(/^\/api\/accounts\/(\d+)\/balance$/);
-    if (balanceMatch && req.method==='POST') {
-      const target=account(balanceMatch[1]), targetBalance=parseBalance((await body(req)).balance);
-      const snapshot=state(monthNow()), current=summarize(snapshot.accounts,snapshot.transactions,monthNow()).balances[target.id];
-      const delta=targetBalance-current;
-      if (delta) atomic(()=>{
-        db.prepare('UPDATE account SET opening_cents=opening_cents+? WHERE id=?').run(delta,target.id);
-        db.prepare('INSERT INTO audit(entity,entity_id,action,snapshot) VALUES(?,?,?,?)').run('account',target.id,'balance_adjustment',JSON.stringify({before_cents:current,after_cents:targetBalance,date:now()}));
+    if (url.pathname==='/api/banking/ing/connect' && req.method==='POST') {
+      let config;
+      try { config=ingConfiguration(port); }
+      catch { fail(res,400,'Revisa la configuración de Enable Banking y HTTPS local.'); return; }
+      if (origin!==new URL(config.redirectUrl).origin) {
+        fail(res,400,'Abre AhorraRamos desde el mismo origen configurado para el retorno de ING.');
+        return;
+      }
+      const pending={
+        config, expiresAt:Date.now()+15*60_000,
+        state:randomBytes(32).toString('base64url'), verifier:randomBytes(32).toString('base64url')
+      };
+      pendingIng=pending;
+      let destination;
+      try { destination=await startIngAuthorization(config,pending.state); }
+      catch {
+        if (pendingIng===pending) pendingIng=null;
+        fail(res,502,'No se ha podido iniciar la autorización con Enable Banking.');
+        return;
+      }
+      if (pendingIng!==pending || pending.expiresAt<=Date.now()) { fail(res,409,'La autorización local ha caducado.'); return; }
+      res.setHeader('Set-Cookie',ingCookieHeader(pending.verifier,15*60));
+      reply(res,200,{url:destination}); return;
+    }
+    if (url.pathname==='/api/banking/ing/sync' && req.method==='POST') {
+      try { await synchronizeIng(); }
+      catch { fail(res,400,'No se ha podido actualizar la cuenta ING.'); return; }
+      reply(res,200,{ok:true}); return;
+    }
+    if (url.pathname==='/api/banking/ing/disconnect' && req.method==='POST') {
+      pendingIng=null;
+      const connection=ingConnection(); if (!connection) { reply(res,200,{ok:true}); return; }
+      atomic(() => {
+        db.prepare('DELETE FROM expense_category_override WHERE account_id=?').run(connection.provider_account_id);
+        db.prepare('DELETE FROM ing_connection WHERE provider_session_id=?').run(connection.provider_session_id);
       });
-      reply(res,200,{ok:true,adjusted:Boolean(delta)}); return;
-    }
-    if (url.pathname==='/api/categories' && req.method==='POST') {
-      const data=await body(req), name=String(data.name||'').trim(); if (!name || name.length>40) throw new Error('Categoría no válida');
-      db.prepare('INSERT INTO category(name) VALUES(?)').run(name); reply(res,201,{ok:true}); return;
-    }
-    if (url.pathname==='/api/transactions' && req.method==='POST') {
-      const t=transactionInput(await body(req)); atomic(()=>insertTransaction(t)); reply(res,201,{ok:true}); return;
-    }
-    const match=url.pathname.match(/^\/api\/transactions\/(\d+)$/);
-    if (match && ['PUT','DELETE'].includes(req.method)) {
-      const old=db.prepare('SELECT * FROM transaction_entry WHERE id=?').get(Number(match[1])); if (!old) { fail(res,404,'Movimiento no encontrado'); return; }
-      if (old.salary_month) throw new Error('La nómina confirmada se gestiona desde el calendario');
-      if (req.method==='DELETE') { atomic(()=>{audit(old.id,'delete',old); db.prepare('DELETE FROM transaction_entry WHERE id=?').run(old.id);}); reply(res,200,{ok:true}); return; }
-      const t=transactionInput(await body(req)); atomic(()=>{audit(old.id,'before_update',old); db.prepare('UPDATE transaction_entry SET type=?,amount_cents=?,date=?,account_id=?,destination_id=?,category_id=?,note=? WHERE id=?').run(t.type,t.amount,t.date,t.accountId,t.destinationId,t.categoryId,t.note,old.id);}); reply(res,200,{ok:true}); return;
-    }
-    if (url.pathname==='/api/salary' && req.method==='GET') {
-      const year=Number(url.searchParams.get('year')), month=Number(url.searchParams.get('month'));
-      const date=salaryDate(year,month), key=`${year}-${String(month).padStart(2,'0')}`;
-      const confirmed=db.prepare('SELECT * FROM transaction_entry WHERE salary_month=?').get(key);
-      reply(res,200,{date,month:key,confirmed:confirmed||null}); return;
-    }
-    if (url.pathname==='/api/salary' && req.method==='POST') {
-      const data=await body(req), key=String(data.month||''); if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) throw new Error('Mes no válido');
-      const existing=db.prepare('SELECT id FROM transaction_entry WHERE salary_month=?').get(key);
-      if (existing) { reply(res,200,{id:existing.id,alreadyConfirmed:true}); return; }
-      const actualDate=validDate(data.date||salaryDate(Number(key.slice(0,4)),Number(key.slice(5))));
-      const destinationAccount=soleAccount();
-      const t={type:'income',amount:parseCents(String(data.amount||'')),date:actualDate,accountId:destinationAccount.id,destinationId:null,categoryId:null,note:'Nómina '+key};
-      let id; atomic(()=>{id=insertTransaction(t,key);}); reply(res,201,{id,alreadyConfirmed:false}); return;
+      let revoked=false;
+      try { await closeIngSession(ingConfiguration(port),connection.provider_session_id); revoked=true; } catch { }
+      reply(res,200,{ok:true,revoked}); return;
     }
     fail(res,404,'No encontrado');
-  } catch(error) { const message=error instanceof SyntaxError?'JSON no válido':error.message; fail(res,400,message); }
-});
-if(process.argv.includes('--set-password')) {
-  configurePassword().catch(error=>{console.error(error.message);process.exitCode=1;}).finally(()=>db.close());
-} else if(!db.prepare('SELECT 1 FROM user WHERE id=1').get()) {
-  console.error('AhorraRamos aún no está configurado. Ejecuta `node src/server.js --set-password` para crear una contraseña local.');
-  db.close(); process.exitCode=1;
-} else {
-  server.listen(port,'127.0.0.1',()=>console.log(`AhorraRamos: http://127.0.0.1:${port}`));
-}
+  } catch { fail(res,500,'No se ha podido completar la solicitud local.'); }
+};
+const assets = new Map([
+  ['/', ['public/index.html', 'text/html']],
+  ['/app.js', ['public/app.js', 'text/javascript']],
+  ['/style.css', ['public/style.css', 'text/css']],
+  ['/domain.js', ['domain.js', 'text/javascript']]
+]);
+if (Boolean(tlsKeyPath) !== Boolean(tlsCertPath)) throw new Error('Configura los dos archivos TLS locales, clave y certificado.');
+const server=secure?https.createServer({key:readFileSync(tlsKeyPath),cert:readFileSync(tlsCertPath)},handler):http.createServer(handler);
+server.listen(port,'127.0.0.1',()=>{scheduleIngSynchronization();console.log(`AhorraRamos: ${scheme}://127.0.0.1:${port}`);});

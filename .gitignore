@@ -5,6 +5,10 @@ data/
 !.env.example
 *.pem
 *.key
+*.pfx
+*.p12
+*.sqlite
+*.sqlite-*
 
 # Dependencias y resultados
 node_modules/

@@ -1,23 +1,186 @@
-<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AhorraRamos</title><link rel="stylesheet" href="/style.css"></head>
+﻿<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AhorraRamos · Panel bancario</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
 <body>
-<div id="auth" class="auth-wrap" hidden><section class="auth-card"><div class="brand-mark">AR</div><p class="eyebrow">FINANZAS PERSONALES</p><h1>AhorraRamos</h1><p>Tu dinero, con claridad.</p><form id="auth-form"><label>Contraseña<input name="password" type="password" minlength="12" autocomplete="current-password" required></label><button type="submit">Entrar</button></form><p id="auth-error" role="alert" aria-live="polite"></p></section></div>
-<div id="app" hidden>
-  <header class="topbar"><div class="brand"><span class="brand-mark small">AR</span><span>AhorraRamos</span><i class="privacy-pill">Privado</i></div><nav aria-label="Secciones"><button class="nav active" data-view="overview">Resumen</button><button class="nav" data-view="movements">Movimientos</button><button class="nav" data-view="calendar">Calendario</button><button class="nav" data-view="settings">Ajustes</button></nav><button id="logout" class="quiet">Salir</button></header>
-  <main>
-    <div class="page-head"><div><p class="eyebrow">CONTROL PERSONAL</p><h1 id="page-title">Tu dinero de un vistazo</h1><p id="page-subtitle" class="muted">Datos confirmados, sin estimaciones en el saldo.</p></div><button id="quick-add" class="primary">+ Añadir movimiento</button></div>
-    <p id="notice" class="notice" role="status" hidden></p>
-    <section id="overview" class="view">
-      <div class="period"><label>Mes <input id="month-filter" type="month"></label><span>Los saldos incluyen todos los movimientos confirmados.</span></div>
-      <article class="bank-balance"><div><p class="eyebrow">CUENTA PRINCIPAL</p><div class="bank-balance-heading"><label for="bank-account-select">Dinero disponible ahora</label><select id="bank-account-select" aria-label="Cuenta principal"></select></div><strong id="bank-balance">0,00 €</strong><p id="bank-balance-help">El saldo se calcula con los movimientos confirmados.</p></div><button id="adjust-balance" class="secondary" type="button">Ajustar saldo</button></article>
-      <div class="cards"><article class="card hero"><p>Saldo total</p><strong id="total">0,00 €</strong><small>Entre todas tus cuentas</small></article><article class="card"><p>Ingresos del mes</p><strong id="income">0,00 €</strong><small>Confirmados</small></article><article class="card"><p>Gastos del mes</p><strong id="expenses">0,00 €</strong><small>Consumo confirmado</small></article><article class="card"><p>Ahorro generado</p><strong id="savings">0,00 €</strong><small>Ingresos menos gastos</small></article></div>
-      <div class="two-col"><article class="panel"><div class="section-head"><div><h2>Gastos por categoría</h2><p class="muted">Solo consumo del mes seleccionado</p></div></div><div id="category-chart"></div></article><article class="panel"><div class="section-head"><div><h2>Tus cuentas</h2><p class="muted">Saldo calculado desde el inicial</p></div></div><div id="account-list"></div><p class="footnote">Transferido neto a ahorro este mes: <b id="saved-transfer">0,00 €</b></p></article></div>
-      <article class="panel"><div class="section-head"><div><h2>Últimos gastos</h2><p class="muted">Tus compras más recientes, con su categoría</p></div><button id="overview-expense-add" class="link-button" type="button">+ Añadir gasto</button></div><div id="recent-list"></div></article>
-    </section>
-    <section id="movements" class="view" hidden><div class="panel"><div class="section-head movements-head"><div><h2>Movimientos</h2><p class="muted">Registra cualquier fecha pasada. Las transferencias no cuentan como gasto.</p></div><div class="movement-tools"><input id="search" type="search" placeholder="Buscar movimientos" aria-label="Buscar movimientos"><button id="movement-add" class="secondary" type="button">+ Nuevo movimiento</button></div></div><div id="movement-list"></div></div></section>
-    <section id="calendar" class="view" hidden><article class="panel calendar-panel"><div class="section-head calendar-heading"><div><h2>Calendario de nómina</h2><p class="muted">El día de cobro previsto aparece destacado. La previsión no modifica el saldo.</p></div><label class="month-control">Mes<input id="calendar-month" type="month" aria-label="Mes del calendario"></label></div><div class="calendar-legend" aria-label="Leyenda"><span><i class="dot planned"></i> Día de cobro previsto</span><span><i class="dot confirmed"></i> Cobro confirmado</span></div><div class="calendar-grid" id="calendar-grid" role="grid" aria-label="Calendario mensual"></div><div id="calendar-selection" class="calendar-selection" aria-live="polite"></div></article><div class="two-col calendar-details"><article class="panel salary-panel"><div class="section-head"><div><h2 id="salary-heading">Próxima nómina prevista</h2><p class="muted">Penúltimo día natural; si cae en sábado o domingo, pasa al lunes.</p></div></div><div class="salary-label">Día previsto de cobro</div><div class="salary-date" id="salary-date"></div><p id="salary-state" class="muted"></p><form id="salary-form"><div class="form-grid"><label>Importe real (€)<input name="amount" inputmode="decimal" placeholder="Ej. 1500,00" required></label><label>Fecha real<input name="date" type="date" required></label><label>Cuenta de ingreso<select name="accountId" class="account-select" required></select></label></div><button class="primary">Confirmar cobro</button></form></article><article class="panel calendar-note"><h2>Cómo funciona</h2><p>Marcamos el penúltimo día natural del mes y, si cae en fin de semana, lo desplazamos al lunes siguiente.</p><p>La fecha prevista no aumenta el saldo. Solo se registra el ingreso al confirmar el cobro real y nunca se duplica.</p></article></div></section>
-    <section id="settings" class="view" hidden><div class="two-col"><article class="panel"><h2>Añadir cuenta</h2><p class="muted">El saldo inicial se registra como punto de partida, separado de ingresos y gastos.</p><form id="account-form" class="stack"><label>Nombre<input name="name" maxlength="60" required placeholder="Ej. Cuenta corriente"></label><label>Tipo<select name="kind"><option value="checking">Corriente</option><option value="savings">Ahorro</option><option value="cash">Efectivo</option><option value="investment">Inversión</option></select></label><label>Saldo inicial (€)<input name="opening" inputmode="decimal" placeholder="0,00"></label><label>Fecha del saldo inicial<input name="openingDate" type="date" required></label><button class="primary">Guardar cuenta</button></form></article><article class="panel"><h2>Personalizar categorías</h2><p class="muted">Caprichos, Pádel, Trabajo, Novia e IA ya están disponibles.</p><form id="category-form" class="stack"><label>Nueva categoría<input name="name" maxlength="40" required></label><button class="primary">Añadir categoría</button></form><div id="category-list" class="chips"></div></article></div></section>
-  </main>
-  <dialog id="tx-dialog"><form id="transaction-form" class="dialog-content"><div class="section-head"><div><p class="eyebrow">REGISTRO DE MOVIMIENTO</p><h2 id="dialog-title">Añadir movimiento</h2></div><button id="close-dialog" type="button" class="icon-button" aria-label="Cerrar">×</button></div><div class="type-switch"><label><input type="radio" name="type" value="expense" checked> Gasto</label><label><input type="radio" name="type" value="income"> Ingreso</label><label><input type="radio" name="type" value="transfer"> Transferencia</label></div><div class="form-grid"><label>Importe (€)<input name="amount" inputmode="decimal" required placeholder="0,00"></label><label>Fecha<input name="date" type="date" required><small class="field-help">Puedes elegir cualquier fecha pasada.</small></label><label>Cuenta<select name="accountId" class="account-select" required></select></label><label id="category-field">Categoría<select name="categoryId" id="category-select"></select></label><label id="destination-field" hidden>Destino<select name="destinationId" id="destination-select" class="account-select"></select></label><label class="full">Concepto (opcional)<input name="note" maxlength="160" placeholder="¿En qué fue?"></label></div><p class="cutoff-note">Los movimientos anteriores al saldo inicial se guardan en el historial, pero no alteran el saldo actual de esa cuenta.</p><button class="primary">Guardar movimiento</button></form></dialog>
-  <dialog id="balance-dialog"><form id="balance-form" class="dialog-content"><div class="section-head"><div><p class="eyebrow">AJUSTAR SALDO</p><h2>Saldo actual de la cuenta</h2></div><button id="close-balance-dialog" type="button" class="icon-button" aria-label="Cerrar">×</button></div><p class="muted">Indica el saldo que ves ahora en el banco. Se ajustará el punto de partida de esta cuenta sin crear un ingreso ni un gasto.</p><label>Saldo actual (€)<input name="balance" inputmode="decimal" required placeholder="0,00"></label><button class="primary">Guardar saldo</button></form></dialog>
-</div><script src="/app.js" defer></script></body></html>
+  <a class="skip-link" href="#resumen">Saltar al panel</a>
+  <div class="layout">
+    <aside class="rail">
+      <a class="brand" href="#resumen">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Ahorra<span class="brand-accent">Ramos</span></span>
+      </a>
+      <nav aria-label="Secciones">
+        <a href="#resumen"><span aria-hidden="true">◫</span> Resumen</a>
+        <a href="#analisis"><span aria-hidden="true">◈</span> Análisis</a>
+        <a href="#comparativa"><span aria-hidden="true">▥</span> Comparativa</a>
+        <a href="#movimientos"><span aria-hidden="true">☷</span> Movimientos</a>
+        <a href="#conexion"><span aria-hidden="true">⬡</span> Cuenta ING</a>
+      </nav>
+      <div class="rail-footer"><span class="status-dot" aria-hidden="true"></span> Aplicación local</div>
+    </aside>
+
+    <main id="resumen">
+      <header class="page-head">
+        <div>
+          <h1 id="page-title">Resumen bancario</h1>
+          <p id="coverage" class="muted">Cargando consulta bancaria…</p>
+        </div>
+        <div class="period-control">
+          <button id="prev-month" type="button" aria-label="Mes anterior" disabled>‹</button>
+          <input id="month" type="month" aria-label="Mes seleccionado" min="1000-01" max="9999-12" disabled>
+          <button id="next-month" type="button" aria-label="Mes siguiente" disabled>›</button>
+        </div>
+      </header>
+      <p id="notice" class="notice" role="status" hidden></p>
+      <button id="retry-load" class="quiet" type="button" hidden>Reintentar carga del panel</button>
+
+      <section id="overview" class="overview" aria-label="Saldo y métricas mensuales">
+        <article class="balance-panel" id="conexion">
+          <div class="bank-header">
+            <div class="bank-name"><span class="bank-mark" aria-hidden="true">ING</span><h2>ING España</h2></div>
+            <span id="connection-status" class="connection-status" hidden></span>
+          </div>
+          <div class="balance-figure">
+            <p id="balance-kind">Último saldo bancario</p>
+            <strong id="balance">—</strong>
+          </div>
+          <p id="bank-status" class="muted" aria-live="polite"></p>
+          <div class="bank-actions">
+            <button id="connect" class="primary" type="button" hidden>Conectar ING</button>
+            <button id="sync" class="primary" type="button" hidden><span aria-hidden="true">↻</span> Actualizar ahora</button>
+            <button id="disconnect" class="quiet" type="button" hidden>Desconectar</button>
+          </div>
+        </article>
+        <div class="metrics">
+          <article class="metric">
+            <span class="metric-icon tone-mint" aria-hidden="true">↙</span>
+            <h2>Abonos del mes</h2>
+            <strong id="credits">—</strong>
+            <small id="credit-count">Entradas en cuenta</small>
+          </article>
+          <article class="metric">
+            <span class="metric-icon tone-peach" aria-hidden="true">↗</span>
+            <h2>Cargos del mes</h2>
+            <strong id="debits">—</strong>
+            <small id="debit-count">Movimientos de salida</small>
+          </article>
+          <article class="metric">
+            <span class="metric-icon tone-violet" aria-hidden="true">↔</span>
+            <h2>Flujo neto ajustado</h2>
+            <strong id="net">—</strong>
+            <small>Abonos menos cargos, sin aportaciones a acciones</small>
+          </article>
+          <article class="metric">
+            <span class="metric-icon tone-blue" aria-hidden="true">◷</span>
+            <h2>Nómina prevista</h2>
+            <strong id="salary-date">—</strong>
+            <small>Fecha estimada de cobro</small>
+          </article>
+          <article class="metric investment-metric">
+            <span class="metric-icon tone-violet" aria-hidden="true">↗</span>
+            <h2>Aportaciones a acciones</h2>
+            <strong id="investment-debits">—</strong>
+            <small>Transferencias emitidas en el mes</small>
+          </article>
+        </div>
+      </section>
+
+      <section id="analisis" class="analysis-grid" aria-label="Análisis de la cuenta">
+        <article class="panel">
+          <div class="panel-head">
+            <div><h2>Actividad diaria</h2><p class="muted">Entradas y salidas contabilizadas · EUR</p></div>
+            <div class="legend"><span>Abonos</span><span>Cargos</span></div>
+          </div>
+          <p id="activity-empty" class="empty chart-empty">La actividad aparecerá al cargar datos bancarios.</p>
+          <div id="activity" hidden>
+            <div class="chart" aria-hidden="true">
+              <div id="chart-scale" class="chart-scale"></div>
+              <div class="chart-body"><div id="chart-bars" class="chart-bars"></div><div id="chart-axis" class="chart-axis"></div></div>
+            </div>
+            <details class="chart-details" id="chart-details">
+              <summary>Consultar importes por día</summary>
+              <ul id="chart-data"></ul>
+            </details>
+          </div>
+          <p id="daily-average" class="muted" hidden></p>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div><h2>Cargos por categoría</h2><p class="muted">Selecciona una categoría para filtrar</p></div>
+          </div>
+          <p id="category-empty" class="empty chart-empty">El desglose aparecerá cuando haya cargos.</p>
+          <div id="categories" class="categories" hidden></div>
+        </article>
+      </section>
+
+      <section id="comparativa" class="analysis-grid monthly-analysis" aria-label="Análisis mensual" tabindex="-1" hidden>
+        <article class="panel">
+          <div class="panel-head">
+            <div><h2>Evolución mensual</h2><p class="muted">Abonos y cargos por mes · EUR</p></div>
+            <div class="legend"><span>Abonos</span><span>Cargos</span></div>
+          </div>
+          <p id="monthly-empty" class="empty chart-empty">La evolución aparecerá al cargar datos bancarios.</p>
+          <div id="monthly-chart" hidden>
+            <div class="chart chart-monthly" aria-hidden="true">
+              <div id="monthly-scale" class="chart-scale"></div>
+              <div><div id="monthly-bars" class="chart-bars"></div><div id="monthly-axis" class="chart-axis"></div></div>
+            </div>
+            <p id="monthly-partial" class="muted" hidden>* Mes con cobertura parcial</p>
+            <details class="chart-details">
+              <summary>Consultar importes y fechas por mes</summary>
+              <ul id="monthly-data"></ul>
+            </details>
+          </div>
+        </article>
+
+        <article class="panel" aria-labelledby="comparison-title">
+          <div class="panel-head">
+            <div><h2 id="comparison-title">Cargos frente al mes anterior</h2><p id="comparison-period" class="muted" aria-live="polite"></p></div>
+          </div>
+          <p id="comparison-empty" class="empty chart-empty">La comparación aparecerá al cargar datos bancarios.</p>
+          <table id="comparison-table" class="comparison-table" aria-labelledby="comparison-title" aria-describedby="comparison-period" hidden>
+            <thead><tr><th scope="col">Categoría</th><th scope="col" id="comparison-current">Mes elegido</th><th scope="col" id="comparison-previous">Mes anterior</th><th scope="col">Cambio</th></tr></thead>
+            <tbody id="comparison-rows"></tbody>
+          </table>
+        </article>
+      </section>
+
+      <section id="movimientos" class="panel">
+        <div class="panel-head ledger-head">
+          <div><h2>Movimientos contabilizados</h2><p id="movement-count" class="muted" aria-live="polite"></p></div>
+          <button id="clear" class="quiet" type="button" hidden>Quitar filtros</button>
+        </div>
+        <div class="filters">
+          <label class="search-field">Concepto<input id="search" type="search" placeholder="Buscar por nombre o concepto" disabled></label>
+          <label>Tipo<select id="direction" disabled><option value="all">Todos los movimientos</option><option value="debit">Cargos</option><option value="credit">Abonos</option></select></label>
+          <label>Categoría<select id="category" disabled><option value="all">Todas las categorías</option></select></label>
+          <label>Agrupar por<select id="group-by" disabled><option value="category">Categoría</option><option value="concept">Concepto</option><option value="date">Fecha</option><option value="direction">Tipo</option><option value="none">Sin agrupar</option></select></label>
+        </div>
+        <p id="category-status" class="category-status" role="status"></p>
+        <div id="movement-list"><p class="empty">Cargando movimientos…</p></div>
+      </section>
+      <footer class="page-footer">Enable Banking AIS · Solo lectura · EUR · Europe/Madrid</footer>
+    </main>
+  </div>
+  <dialog id="category-editor" aria-labelledby="category-editor-title" aria-describedby="category-editor-movement">
+    <form id="category-form">
+      <h2 id="category-editor-title">Cambiar categoría</h2>
+      <p id="category-editor-movement" class="muted"></p>
+      <label for="expense-category">Categoría del cargo</label>
+      <select id="expense-category" autofocus></select>
+      <p id="category-error" role="alert"></p>
+      <div class="editor-actions">
+        <button id="category-cancel" class="quiet" type="button">Cancelar</button>
+        <button id="category-save" class="primary" type="submit">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

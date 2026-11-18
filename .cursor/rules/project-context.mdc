@@ -1,16 +1,6 @@
----
-description: Contexto e invariantes globales de AhorraRamos
+﻿---
+description: Contexto e invariantes de AhorraRamos
 alwaysApply: true
 ---
 
-# Contexto global
-
-- Lee `docs/PROJECT_CONTEXT.md` antes de proponer cambios.
-- Consulta `docs/CONTEXT.md` para reglas y `docs/ROADMAP.md` para el estado real.
-- No confundas una propuesta futura con la implementación Node.js + SQLite actual.
-- Conserva céntimos enteros, transferencias neutrales e idempotencia de nómina.
-- Separa movimientos confirmados de previsiones y cancelaciones.
-- No inventes ni registres datos financieros personales.
-- Mantén el servicio local y privado salvo decisión explícita.
-- Registra decisiones duraderas en `docs/DECISIONS.md`.
-- Actualiza el contexto solo con comportamiento comprobado.
+Sigue AGENTS.md y lee docs/PROJECT_CONTEXT.md antes de cambiar código.

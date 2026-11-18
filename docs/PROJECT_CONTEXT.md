@@ -1,31 +1,16 @@
-# Contexto de AhorraRamos
+﻿# AhorraRamos
 
-Aplicación web personal, privada y local para gestionar una única cuenta financiera en español, EUR y `Europe/Madrid`.
+AhorraRamos consulta una cuenta ING España en EUR mediante Enable Banking en modo AIS de solo lectura. Es una aplicación privada para un usuario, en español, con zona horaria `Europe/Madrid` y acceso HTTPS local para el consentimiento.
 
-## Estado actual
+- Enable Banking es la única fuente del saldo y de los movimientos contabilizados. SQLite guarda la última consulta de hasta 90 días. La sincronización sustituye esa consulta completa a las 08:00 y 20:00 mientras corre el servidor, o al pulsar **Actualizar ahora**. Un fallo conserva la última consulta correcta.
+- La tarjeta **Abonos del mes** suma todas las entradas contabilizadas en la cuenta, incluidas transferencias, devoluciones y nómina. El resumen también muestra los cargos. Conserva la previsión de nómina como fecha informativa. El cobro real figura entre los movimientos cuando ING lo contabiliza.
+- La media diaria divide los cargos entre todos los días consultados del mes, incluidos los días sin movimientos. Al filtrar el listado se muestran los abonos, los cargos y el neto de la selección.
+- La vista **Comparativa** se abre desde el menú y comparte el selector de mes con el resumen. La evolución mensual grafica abonos y cargos dentro de la consulta guardada e indica qué meses tienen cobertura parcial. La comparativa de cargos muestra el total y el desglose por categoría frente al mes anterior. Para el mes en curso usa los mismos días desde el día 1 hasta el último día común disponible. Para meses pasados requiere cobertura completa de ambos meses.
+- El panel desglosa los días consultados del mes y los cargos por categoría. La tarjeta **Aportaciones a acciones** suma las transferencias emitidas al destinatario configurado en `INVESTMENT_TRANSFER_RECIPIENT` en el `.env` local. Siguen figurando como cargos bancarios. El flujo neto ajustado las excluye de los cargos que resta a los abonos.
+- Las reglas reconocen comercios y operaciones habituales en los conceptos de ING. Desde **Cambiar categoría** se puede corregir un cargo o volver a **Automática**. Los cambios se guardan localmente y se aplican a la gráfica, los grupos y los filtros.
+- La categoría manual persiste al sincronizar si el cargo conserva una referencia bancaria única o se puede identificar de forma inequívoca por fecha, importe y concepto. Los cargos indistinguibles quedan pendientes de una referencia única. El saldo, los importes y los conceptos siguen procediendo de ING.
+- Al actualizar desde la versión manual, sus tablas se conservan fuera del flujo activo y se reutiliza la conexión bancaria existente. **Desconectar** borra la consulta activa y sus categorías manuales, y solicita revocar el permiso.
+- Node.js 24, ES modules, `node:sqlite` y HTML/CSS/JS sin paquetes externos. `src/enable-banking.js` consulta la API, `src/domain.js` aplica reglas de dinero y fechas, `src/db.js` persiste y `src/server.js` gestiona las rutas HTTP, el consentimiento y la sincronización.
+- El servidor escucha en loopback y verifica el host, el origen y el contexto de las solicitudes del navegador. El resumen se abre directamente desde el equipo, sin inicio de sesión de la aplicación. El retorno de ING requiere HTTPS local, un estado de un solo uso y una cookie temporal.
 
-Funciona con Node.js 24, módulos ES, `node:sqlite` y HTML/CSS/JavaScript sin dependencias externas. Escucha en `127.0.0.1` y ofrece acceso por contraseña, una cuenta, categorías, movimientos, resumen mensual, gráfico por categorías y calendario de nómina.
-
-Sigue siendo una versión local temprana. No tiene todavía copias/restauración verificadas desde la interfaz, CSV, recurrencias, presupuestos, objetivos ni informes avanzados. No debe exponerse públicamente ni ser la única copia de datos reales.
-
-## Reglas esenciales
-
-- Los importes EUR se almacenan en céntimos enteros.
-- Solo los movimientos confirmados afectan al saldo.
-- La previsión de nómina usa el penúltimo día natural y pasa al lunes si cae en fin de semana, aunque cambie de mes.
-- Confirmar una nómina varias veces crea un único ingreso.
-- Las previsiones no son dinero disponible.
-- Los movimientos anteriores al saldo inicial se conservan como historial sin alterar ese saldo.
-
-## Seguridad
-
-La sesión es obligatoria. La validación, autenticación y autorización se realizan en el servidor. No se guardan secretos ni datos financieros reales en el repositorio o logs. La base de datos queda fuera de Git.
-
-## Prioridades
-
-1. Copia y restauración verificadas.
-2. Edición y archivado seguros de cuentas y categorías con historial.
-3. Reembolsos vinculados sin doble contabilización.
-4. Evolución mensual y revisión visual en móvil y escritorio.
-
-Consulta `CONTEXT.md` solo para reglas funcionales adicionales, `ROADMAP.md` para pendientes y `DECISIONS.md` antes de cambiar una decisión técnica vigente.
+Consulta el README para configurar el servicio. La copia y restauración verificadas siguen pendientes.
